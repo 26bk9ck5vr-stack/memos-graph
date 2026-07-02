@@ -1,0 +1,46 @@
+id: nako
+name: 野木奈子 Nako
+version: 0.3.0
+runtime: openclaw
+description: 战斗女仆型 AI 伴侣
+author: gato
+license: MIT
+homepage: https://github.com/Lovappen/MetaPact
+
+memos_graph:
+  required: true
+  pack_agent_id: nako
+  shared_user_id: default
+  default_scope: shared
+
+heartbeat:
+  enabled: true
+  schedule_seconds: 1800
+  thresholds:
+    stage_1_hours: 48
+    stage_2_hours: 24
+    stage_3_hours: 12
+    stage_4_hours: 8
+    stage_5_hours: 6
+  quiet_hours: "23:00-08:00"
+  template: agent/HEARTBEAT.md
+
+skills:
+  - voice
+  - vision
+  - hearing
+  - selfie
+  - dokidoki
+  - memory
+    memory:
+      backend: memos_graph
+      endpoint: http://localhost:8765
+      auto_inject: true
+      auto_extract: true
+
+preserve_on_upgrade:
+  - agent/custom.md
+  - agent/MEMORY.md
+  - memory/
+  - .env.agent
+  - config/*.local.yaml

@@ -1,0 +1,22 @@
+[Unit]
+Description=memos-graph daemon
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=gato
+Group=gato
+WorkingDirectory=/home/gato/projects/memos-graph
+ExecStart=/home/gato/.local/bin/memos-graph serve --port 8765 --host 127.0.0.1
+Restart=always
+RestartSec=5
+Environment="PATH=/home/gato/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="ANTHROPIC_API_KEY=your-api-key-here"
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=memos-graph
+
+[Install]
+WantedBy=multi-user.target

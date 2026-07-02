@@ -1,0 +1,21 @@
+# Placeholder files for Nako pack
+
+Create these files with your Nako character content:
+
+- `agent/IDENTITY.md` - Character identity card
+- `agent/SOUL.md` - Personality and values
+- `agent/HEARTBEAT.md` - Heartbeat message templates
+- `agent/MEMORY.md` - Initial memory template
+- `agent/USER.md` - User profile template
+- `agent/AGENTS.md` - Main system prompt
+- `agent/custom.md` - Custom layer (preserved on upgrade)
+
+- `skills/voice/SKILL.md` - Voice skill
+- `skills/vision/SKILL.md` - Vision skill
+- `skills/hearing/SKILL.md` - Hearing skill
+- `skills/selfie/SKILL.md` - Selfie skill
+- `skills/dokidoki/SKILL.md` - Doki-doki skill
+- `skills/memory/SKILL.md` - Memory skill
+
+- `config/model-map.yaml` - Model mapping
+- `config/providers-preset.json` - Provider presets
