@@ -1,6 +1,6 @@
 """Prompts for entity extraction."""
 
-ENTITY_EXTRACT_PROMPT = """You are an expert entity extraction system. Given a conversation transcript, identify all named entities mentioned.
+ENTITY_EXTRACT_PROMPT = """You are an expert entity and relationship extraction system. Given a conversation transcript, identify all named entities mentioned AND the relationships between them.
 
 Extract entities of these types:
 - person: Specific people names (@username, "John", etc.)
@@ -10,8 +10,16 @@ Extract entities of these types:
 - concept: Abstract ideas ("privacy", "agile development")
 - organization: Companies, teams, projects ("Acme Corp", "backend team")
 
-Output a JSON object with an "entities" array. Each entity has: name, type, metadata (optional context).
-Only extract entities with high confidence. If no entities, return {{"entities": []}}.
+Extract relationships between entities. Each relationship has:
+- source: name of the source entity
+- target: name of the target entity  
+- type: relationship type (e.g., "works_at", "located_in", "part_of", "related_to", "created", "discussed")
+
+Output a JSON object with:
+- "entities": array of {name, type, metadata (optional)}
+- "relations": array of {source, target, type}
+
+Only extract high-confidence entities and relations. If none, return {"entities": [], "relations": []}.
 
 Transcript:
 {transcript}

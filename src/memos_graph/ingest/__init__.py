@@ -29,20 +29,29 @@ class EntityExtractor:
     def __init__(self, llm_client: LLMClient | None = None) -> None:
         self._llm = llm_client or make_llm_client()
 
-    async def extract(self, text: str) -> list[dict[str, Any]]:
+    async def extract(self, text: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Extract entities and relations from text.
+        
+        Returns:
+            Tuple of (entities, relations)
+        """
         try:
             data = await self._llm.extract_entities(text[:3000])
             entities = data.get("entities", [])
+            relations = data.get("relations", [])
+            
+            # Deduplicate entities
             seen = set()
             deduped = []
             for e in entities:
                 if e.get("name") and e["name"] not in seen:
                     seen.add(e["name"])
                     deduped.append(e)
-            return deduped
+            
+            return deduped, relations
         except Exception as e:
             logger.warning(f"Entity extraction failed: {e}")
-            return []
+            return [], []
 
 
 class EventExtractor:
@@ -311,7 +320,10 @@ class IngestPipeline:
 
         # 2. Extract and link entities
         if extract_entities:
-            extracted = await self._entity.extract(text)
+            extracted, relations = await self._entity.extract(text)
+            
+            # Store entities
+            entity_ids = {}  # name -> id mapping
             for e in extracted:
                 name = e.get("name", "")
                 if not name:
@@ -328,10 +340,43 @@ class IngestPipeline:
                     session.add(entity)
                     await session.flush()
                     entity_id = entity.id
+                
+                entity_ids[name] = entity_id
 
                 assoc = ChunkEntity(chunk_id=chunk_id, entity_id=entity_id, confidence=e.get("confidence", 1.0))
                 session.add(assoc)
                 results["entity_count"] += 1
+            
+            # Store relations
+            for rel in relations:
+                source_name = rel.get("source", "")
+                target_name = rel.get("target", "")
+                rel_type = rel.get("type", "related_to")
+                
+                if not source_name or not target_name:
+                    continue
+                
+                source_id = entity_ids.get(source_name)
+                target_id = entity_ids.get(target_name)
+                
+                if source_id and target_id:
+                    # Check if relation already exists
+                    existing_rel = await session.execute(
+                        select(EntityEdge).where(
+                            EntityEdge.source_entity_id == source_id,
+                            EntityEdge.target_entity_id == target_id,
+                            EntityEdge.relation_type == rel_type
+                        )
+                    )
+                    if not existing_rel.scalar_one_or_none():
+                        edge = EntityEdge(
+                            source_entity_id=source_id,
+                            target_entity_id=target_id,
+                            relation_type=rel_type,
+                            agent_id=agent_id
+                        )
+                        session.add(edge)
+                        results["relation_count"] = results.get("relation_count", 0) + 1
 
         # 3. Generate and store chunk vector
         try:

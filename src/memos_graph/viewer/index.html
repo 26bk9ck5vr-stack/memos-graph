@@ -235,20 +235,25 @@ async function loadEvents() {
     try {
         const data = await api('/events?agent_id='+currentAgent+'&limit=20');
         const el = document.getElementById('events-list');
-        if (!data.events || !data.events.length) { el.innerHTML = '<div class="empty">暂无事件</div>'; return; }
-        el.innerHTML = data.events.map(e => `
+        // API 直接返回数组
+        const events = Array.isArray(data) ? data : (data.events || []);
+        if (!events.length) { el.innerHTML = '<div class="empty">暂无事件</div>'; return; }
+        el.innerHTML = events.map(e => `
             <div class="event-item">
                 <div class="type">${e.event_type || 'event'}</div>
-                <div class="content">${esc(e.content || '')}</div>
+                <div class="content">${esc(e.summary || e.payload?.raw?.summary || '')}</div>
                 <div class="time">${timeAgo(e.created_at)}</div>
             </div>`).join('');
-    } catch(e) { document.getElementById('events-list').innerHTML = '<div class="empty">加载失败</div>'; }
+    } catch(e) { console.error('events error', e); document.getElementById('events-list').innerHTML = '<div class="empty">加载失败</div>'; }
 }
 
 async function loadPromises() {
     try {
         const data = await api('/promises?agent_id='+currentAgent);
-        const promises = data.promises || [];
+        // API 直接返回数组
+        const promises = Array.isArray(data) ? data : (data.promises || []);
+        const el = document.getElementById('right-promises');
+        const el2 = document.getElementById('promises-list');
         const html = !promises.length ? '<div class="empty">暂无承诺</div>' :
             promises.map(p => {
                 const overdue = p.due_at && new Date(p.due_at) < new Date() && p.status !== 'done';
@@ -257,9 +262,9 @@ async function loadPromises() {
                     <div class="deadline">${p.due_at ? '⏰ '+p.due_at : '无截止'} · ${p.status}</div>
                 </div>`;
             }).join('');
-        document.getElementById('right-promises').innerHTML = html;
-        document.getElementById('promises-list').innerHTML = html;
-    } catch(e) { document.getElementById('promises-list').innerHTML = '<div class="empty">加载失败</div>'; }
+        if (el) el.innerHTML = html;
+        if (el2) el2.innerHTML = html;
+    } catch(e) { console.error('promises error', e); document.getElementById('promises-list').innerHTML = '<div class="empty">加载失败</div>'; }
 }
 
 async function loadPacks() {
