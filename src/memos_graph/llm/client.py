@@ -15,10 +15,12 @@ class LLMClient:
         self.api_key = api_key
         self.model = model
         self.timeout = timeout
+        # Create httpx client (no proxy needed for direct connection)
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             headers={"Authorization": f"Bearer {self.api_key}"},
             timeout=httpx.Timeout(timeout),
+            trust_env=False,  # Don't use proxy from environment
         )
 
     async def chat(self, messages: list[dict[str, str]], **kwargs) -> str:

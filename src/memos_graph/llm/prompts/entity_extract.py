@@ -1,24 +1,19 @@
-"""LLM prompts for memos-graph."""
+"""Prompts for entity extraction."""
 
-ENTITY_EXTRACT_PROMPT = """You are an entity and relation extractor for AI agent memory.
+ENTITY_EXTRACT_PROMPT = """You are an expert entity extraction system. Given a conversation transcript, identify all named entities mentioned.
 
-Extract entities and their relations from the given text.
+Extract entities of these types:
+- person: Specific people names (@username, "John", etc.)
+- place: Locations, cities, countries ("Tokyo", "remote")
+- event: Things that happened or will happen ("meeting", "release")
+- object: Physical or digital things ("projector", "GitHub repo")
+- concept: Abstract ideas ("privacy", "agile development")
+- organization: Companies, teams, projects ("Acme Corp", "backend team")
 
-Output JSON in this format:
-{
-  "entities": [
-    {"name": "entity name", "type": "person|place|event|object|concept", "metadata": {}}
-  ],
-  "relations": [
-    {"from": "entity1", "to": "entity2", "type": "relation_type", "confidence": 0.0-1.0}
-  ]
-}
+Output a JSON object with an "entities" array. Each entity has: name, type, metadata (optional context).
+Only extract entities with high confidence. If no entities, return {{"entities": []}}.
 
-Rules:
-- Extract only significant entities (names, places, events, important objects)
-- Use consistent entity names
-- Relation types: knows, likes, dislikes, works_at, lives_in, created, participated_in, etc.
-- Confidence: 0.0-1.0 based on how clear the relation is
+Transcript:
+{transcript}
 
-Text:
-"""
+JSON output:"""

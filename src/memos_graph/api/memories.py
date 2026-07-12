@@ -1,13 +1,16 @@
 """Memory (chunk) CRUD and search endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from memos_graph.db.session import get_session
 from memos_graph.db.models import Chunk, ChunkVector
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -57,20 +60,62 @@ class SearchResponse(BaseModel):
 @router.post("/memories", response_model=MemoryResponse)
 async def create_memory(
     memory: MemoryCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
 ):
-    """Create a new memory chunk."""
-    chunk = Chunk(
-        agent_id=memory.agent_id,
-        scope=memory.scope,
-        role=memory.role,
-        content=memory.content,
-        metadata_=memory.metadata,
+    """Create a new memory chunk with full ingest pipeline (entities, events, promises)."""
+    from memos_graph.ingest import IngestPipeline
+    from memos_graph.config import load_config
+    from memos_graph.embedding import EmbeddingService
+    from memos_graph.llm.client import LLMClient
+    from memos_graph.db.models import Chunk
+    from sqlalchemy import select
+    
+    # Use global services from app.state if available, otherwise create new ones
+    if hasattr(request.app.state, 'llm_client') and hasattr(request.app.state, 'embedding_service'):
+        llm_client = request.app.state.llm_client
+        embedding_service = request.app.state.embedding_service
+    else:
+        cfg = load_config()
+        llm_client = LLMClient(
+            base_url=cfg.llm.base_url,
+            api_key=cfg.llm.api_key,
+            model=cfg.llm.model,
+            timeout=cfg.llm.timeout_seconds,
+        )
+        embedding_service = EmbeddingService(
+            provider=cfg.embedding.provider,
+            model=cfg.embedding.model,
+            base_url=cfg.embedding.base_url,
+            api_key=cfg.embedding.api_key,
+            timeout=float(cfg.embedding.timeout_seconds),
+        )
+    
+    # Create pipeline with shared services
+    pipeline = IngestPipeline(
+        llm_client=llm_client,
+        embedding_service=embedding_service,
     )
-    session.add(chunk)
-    await session.commit()
-    await session.refresh(chunk)
-
+    
+    # Run full ingest pipeline
+    result = await pipeline.ingest(
+        text=memory.content,
+        agent_id=memory.agent_id,
+        session=session,
+        user_id=memory.metadata.get("user_id") if memory.metadata else None,
+        scope=memory.scope or "private",
+        extract_entities=True,
+        extract_events=True,
+        extract_promises=True,
+        merge_profile=False,
+    )
+    
+    # Fetch the created chunk
+    chunk_result = await session.execute(
+        select(Chunk).where(Chunk.id == result["chunk_id"])
+    )
+    chunk = chunk_result.scalar_one()
+    
     return MemoryResponse(
         id=chunk.id,
         agent_id=chunk.agent_id,
@@ -81,6 +126,35 @@ async def create_memory(
         created_at=chunk.created_at,
         updated_at=chunk.updated_at,
     )
+
+
+@router.get("/memories", response_model=list[MemoryResponse])
+async def list_memories(
+    agent_id: str = Query(...),
+    limit: int = Query(50, ge=1, le=200),
+    session: AsyncSession = Depends(get_session),
+):
+    """List memory chunks for an agent."""
+    result = await session.execute(
+        select(Chunk)
+        .where(Chunk.agent_id == agent_id)
+        .order_by(Chunk.created_at.desc())
+        .limit(limit)
+    )
+    chunks = result.scalars().all()
+    return [
+        MemoryResponse(
+            id=c.id,
+            agent_id=c.agent_id,
+            scope=c.scope,
+            role=c.role,
+            content=c.content,
+            metadata=c.metadata_,
+            created_at=c.created_at,
+            updated_at=c.updated_at,
+        )
+        for c in chunks
+    ]
 
 
 @router.get("/memories/{memory_id}", response_model=MemoryResponse)
@@ -172,34 +246,55 @@ async def search_memories(
     request: SearchRequest,
     session: AsyncSession = Depends(get_session),
 ):
-    """Search memories using FTS + vector + RRF + MMR."""
-    # TODO: Implement full 5-stage recall
-    # For now, simple FTS search
-
-    query = select(Chunk).where(
-        Chunk.agent_id == request.agent_id,
-        Chunk.content.ilike(f"%{request.query}%")
+    """Search memories using 5-stage recall (FTS + Vector + RRF + MMR + Graph)."""
+    from memos_graph.recall import RecallEngine, RecallRequest
+    from memos_graph.config import load_config
+    
+    cfg = load_config()
+    engine = RecallEngine(
+        embedding_provider=cfg.embedding.provider,
+        embedding_model=cfg.embedding.model,
+        embedding_base_url=cfg.embedding.base_url,
+        embedding_api_key=cfg.embedding.api_key,
+        embedding_timeout=float(cfg.embedding.timeout_seconds),
     )
+    req = RecallRequest(
+        query=request.query,
+        agent_id=request.agent_id,
+        scope=request.scope or "all",
+        max_results=request.top_k,
+    )
+    recall_result = await engine.search(req)
 
-    if request.scope:
-        query = query.where(Chunk.scope == request.scope)
+    # Load full chunks
+    chunk_ids = [h.chunk_id for h in recall_result.hits]
+    if not chunk_ids:
+        return SearchResponse(results=[], query=request.query)
 
-    query = query.limit(request.top_k)
-    result = await session.execute(query)
+    result = await session.execute(
+        select(Chunk).where(Chunk.id.in_(chunk_ids))
+    )
     chunks = result.scalars().all()
+    chunk_map = {c.id: c for c in chunks}
 
-    results = [
-        MemoryResponse(
-            id=chunk.id,
-            agent_id=chunk.agent_id,
-            scope=chunk.scope,
-            role=chunk.role,
-            content=chunk.content,
-            metadata=chunk.metadata_,
-            created_at=chunk.created_at,
-            updated_at=chunk.updated_at,
-        )
-        for chunk in chunks
-    ]
+    results = []
+    for hit in recall_result.hits:
+        if hit.chunk_id is None:
+            logger.warning(f"Skipping hit with chunk_id=None, stage_source={hit.stage_source}, score={hit.score}")
+            continue
+        c = chunk_map.get(hit.chunk_id)
+        if c:
+            results.append(MemoryResponse(
+                id=c.id,
+                agent_id=c.agent_id,
+                scope=c.scope,
+                role=c.role,
+                content=c.content,
+                metadata=c.metadata_,
+                created_at=c.created_at,
+                updated_at=c.updated_at,
+            ))
+        else:
+            logger.warning(f"Chunk not found for hit chunk_id={hit.chunk_id}, stage_source={hit.stage_source}")
 
     return SearchResponse(results=results, query=request.query)

@@ -108,14 +108,15 @@ class DatabaseSettings(BaseSettings):
 
 class EmbeddingSettings(BaseSettings):
     """Embedding settings."""
-    provider: str = Field(default="ollama")
-    model: str = Field(default="nomic-embed-text")
-    dimension: int = Field(default=768)
-    base_url: str = Field(default="http://localhost:11434")
+    provider: str = Field(default="siliconflow")
+    model: str = Field(default="BAAI/bge-m3")
+    dimension: int = Field(default=1024)
+    base_url: str = Field(default="https://api.siliconflow.cn/v1")
+    api_key: str = Field(default="")
     cache_db: str = Field(default="~/.local/share/memos-graph/embeddings.db")
     timeout_seconds: int = Field(default=30)
 
-    model_config = SettingsConfigDict(env_prefix="MEMOS_EMBEDDING_")
+    model_config = SettingsConfigDict(env_prefix="MEMOS_EMBEDDING_", extra="ignore")
 
 
 class LLMSettings(BaseSettings):
@@ -164,7 +165,7 @@ class Config(BaseSettings):
     viewer: ViewerSettings = Field(default_factory=ViewerSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
-    model_config = SettingsConfigDict(env_prefix="MEMOS_")
+    model_config = SettingsConfigDict(env_prefix="MEMOS_", extra="ignore")
 
 
 def load_config(config_path: Path | None = None) -> Config:

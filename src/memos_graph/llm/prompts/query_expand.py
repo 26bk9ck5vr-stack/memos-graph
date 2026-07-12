@@ -1,27 +1,13 @@
-"""Query expansion prompt for better recall."""
+"""Prompts for query expansion."""
 
-QUERY_EXPAND_PROMPT = """You are a query expander for AI agent memory retrieval.
+QUERY_EXPAND_PROMPT = """You are a query expansion system. Given a user query, expand it to improve memory search recall.
 
-Given a user query, generate 3-5 expanded variations that might help find relevant memories.
+Original query: {query}
 
-Output one query per line, no JSON.
+Expand by:
+1. Adding synonyms and related terms
+2. Including possible variations (singular/plural, past/present)
+3. Adding domain-specific terms if applicable
+4. Breaking compound queries into sub-queries
 
-Example:
-Input: "What does she like to eat?"
-Output:
-favorite foods
-dietary preferences
-restaurants she enjoys
-cooking interests
-food allergies
-
-Input: "Tell me about our first meeting"
-Output:
-first encounter
-when we met
-initial conversation
-introduction moment
-first interaction
-
-Query:
-"""
+Return JSON: {{"expanded_queries": ["query1", "query2", ...], "keywords": ["key1", "key2"]}}"""

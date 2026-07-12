@@ -1,27 +1,20 @@
-"""Promise extraction prompt."""
+"""Prompts for promise extraction."""
 
-PROMISE_EXTRACT_PROMPT = """You are a promise extractor for AI agent memory.
+PROMISE_EXTRACT_PROMPT = """You are a promise detection system. Given a conversation transcript, identify all commitments or promises made by the agent.
 
-Detect any promises, commitments, or intentions in the given text.
+A promise is:
+- A commitment to do something ("I'll send the report", "will review by Friday")
+- A guarantee about future behavior ("I will always...")
+- A to-do item assigned to the agent
+- A stated intention that implies obligation
 
-Output JSON in this format:
-{
-  "promises": [
-    {
-      "content": "What was promised",
-      "promiser": "Who promised",
-      "beneficiary": "To whom",
-      "due_at": "YYYY-MM-DD or null if unspecified",
-      "confidence": 0.0-1.0
-    }
-  ],
-  "has_promise": true|false
-}
+Output JSON with a "promises" array. Each promise has:
+- content: The promise text
+- status: "open" (default)
+- due_at: ISO date if mentioned, otherwise null
+- confidence: 0.0-1.0
 
-Rules:
-- Look for speech acts like "I promise", "I will", "I'll make sure", "I guarantee", "I promise to"
-- Also detect implicit promises ("Let me do that for you" implies commitment)
-- If no promise detected, return {"promises": [], "has_promise": false}
+Transcript:
+{transcript}
 
-Text:
-"""
+JSON output:"""

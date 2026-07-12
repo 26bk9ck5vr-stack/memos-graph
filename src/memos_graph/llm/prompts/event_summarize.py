@@ -1,25 +1,14 @@
-"""Event summarization prompt."""
+"""Prompts for event summarization."""
 
-EVENT_SUMMARIZE_PROMPT = """You are an event summarizer for AI agent memory.
+EVENT_SUMMARIZE_PROMPT = """You are an event summarization system. Given a raw event payload, produce a concise human-readable summary.
 
-Summarize the given conversation turn into a structured event.
+Requirements:
+- Summary should be 10-50 words
+- Capture the key action and participants
+- Use present tense for ongoing events, past tense for completed ones
+- Include relevant details (names, dates, outcomes)
 
-Output JSON in this format:
-{
-  "event_type": "message|task_completed|mood_change|promise_made|promise_fulfilled|learning",
-  "summary": "One sentence summary",
-  "actor": "user|agent|system",
-  "payload": {
-    "key_points": ["point1", "point2"],
-    "emotions": ["happy", "curious"],
-    "topics": ["topic1", "topic2"]
-  }
-}
+Event type: {event_type}
+Payload: {payload}
 
-Rules:
-- Be concise but capture the essence
-- Identify the main actor (who initiated)
-- Detect emotions and topics when present
-
-Text:
-"""
+JSON output: {{"summary": "...", "key_participants": [...], "sentiment": "positive|neutral|negative"}}"""

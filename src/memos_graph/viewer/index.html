@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>memos-graph Viewer</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f5f5f7; color: #1d1d1f; height: 100vh; overflow: hidden; }
+        
+        /* Top bar */
+        .topbar { background: #1d1d1f; color: #fff; padding: 0 1.5rem; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+        .topbar h1 { font-size: 1.1rem; font-weight: 600; }
+        .topbar .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #34c759; margin-right: 8px; }
+        
+        /* Main layout */
+        .main { display: grid; grid-template-columns: 320px 1fr 320px; height: calc(100vh - 56px); }
+        
+        /* Panels */
+        .panel { background: #fff; border-right: 1px solid #e5e5e7; overflow-y: auto; padding: 1rem; }
+        .panel:last-child { border-right: none; border-left: 1px solid #e5e5e7; }
+        .panel-header { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #86868b; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e5e5e7; }
+        
+        /* Search */
+        .search-box { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+        .search-box input { flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-size: 0.875rem; outline: none; }
+        .search-box input:focus { border-color: #007aff; box-shadow: 0 0 0 3px rgba(0,122,255,0.15); }
+        .search-box button { padding: 0.5rem 1rem; background: #007aff; color: #fff; border: none; border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
+        .search-box button:hover { background: #005bb5; }
+        
+        /* Memory results */
+        .memory-item { padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem; background: #f5f5f7; cursor: pointer; transition: background 0.15s; }
+        .memory-item:hover { background: #e8e8ed; }
+        .memory-item.active { background: #e8f0fe; border: 1px solid #007aff; }
+        .memory-item .content { font-size: 0.875rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .memory-item .meta { font-size: 0.7rem; color: #86868b; margin-top: 0.35rem; }
+        .memory-item .stage { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; background: #f0f0f5; color: #515154; font-size: 0.65rem; margin-right: 0.25rem; }
+        
+        /* Agent State */
+        .state-item { margin-bottom: 1rem; }
+        .state-label { font-size: 0.7rem; color: #86868b; margin-bottom: 0.25rem; }
+        .state-value { font-size: 0.875rem; font-weight: 500; }
+        .heartbeat-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
+        .heartbeat-badge.pending { background: #fff3cd; color: #856404; }
+        .heartbeat-badge.ok { background: #d4edda; color: #155724; }
+        
+        /* Events timeline */
+        .event-item { position: relative; padding-left: 1.25rem; padding-bottom: 1rem; border-left: 2px solid #e5e5e7; margin-left: 0.5rem; }
+        .event-item::before { content: ''; position: absolute; left: -5px; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: #007aff; }
+        .event-item .type { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; color: #007aff; margin-bottom: 0.15rem; }
+        .event-item .content { font-size: 0.8rem; line-height: 1.4; color: #1d1d1f; }
+        .event-item .time { font-size: 0.7rem; color: #86868b; margin-top: 0.25rem; }
+        
+        /* Promise kanban */
+        .promise-item { padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem; background: #f5f5f7; border-left: 3px solid #ff9500; }
+        .promise-item.done { border-left-color: #34c759; opacity: 0.7; }
+        .promise-item.overdue { border-left-color: #ff3b30; }
+        .promise-item .content { font-size: 0.8rem; line-height: 1.4; }
+        .promise-item .deadline { font-size: 0.7rem; color: #86868b; margin-top: 0.35rem; }
+        
+        /* Tab bar for center panel */
+        .tabs { display: flex; gap: 0; margin-bottom: 1rem; background: #f5f5f7; border-radius: 8px; padding: 4px; }
+        .tab { flex: 1; padding: 0.5rem; text-align: center; font-size: 0.8rem; border-radius: 6px; cursor: pointer; color: #86868b; transition: all 0.15s; }
+        .tab.active { background: #fff; color: #1d1d1f; font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        /* Graph canvas */
+        #graph-canvas { width: 100%; height: 400px; background: #fff; border-radius: 8px; border: 1px solid #e5e5e7; }
+        
+        /* Agent selector */
+        .agent-selector { margin-bottom: 1rem; }
+        .agent-selector select { width: 100%; padding: 0.5rem; border: 1px solid #d2d2d7; border-radius: 8px; font-size: 0.875rem; background: #fff; }
+        
+        /* Empty state */
+        .empty { text-align: center; padding: 2rem; color: #86868b; font-size: 0.875rem; }
+        
+        /* Loading */
+        .loading { text-align: center; padding: 1rem; color: #86868b; }
+        .loading::after { content: '...'; animation: dots 1.5s infinite; }
+        @keyframes dots { 0%,20%{content:'.'} 40%{content:'..'} 60%,100%{content:'...'} }
+
+        /* Pack UI */
+        .pack-install-box { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.75rem; }
+        .pack-input { padding: 0.4rem 0.6rem; border: 1px solid #d2d2d7; border-radius: 6px; font-size: 0.8rem; outline: none; }
+        .pack-input:focus { border-color: #007aff; box-shadow: 0 0 0 2px rgba(0,122,255,0.15); }
+        .pack-btn { padding: 0.4rem 0.75rem; background: #007aff; color: #fff; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
+        .pack-btn:hover { background: #005bb5; }
+        .pack-btn:disabled { background: #d2d2d7; cursor: not-allowed; }
+        .pack-item { padding: 0.6rem 0.7rem; border-radius: 8px; margin-bottom: 0.5rem; background: #f5f5f7; }
+        .pack-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; }
+        .pack-item-name { font-size: 0.875rem; font-weight: 500; }
+        .pack-item-meta { font-size: 0.7rem; color: #86868b; margin-bottom: 0.4rem; }
+        .pack-actions { display: flex; gap: 0.4rem; }
+        .pack-toggle { padding: 0.25rem 0.6rem; border: none; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
+        .pack-toggle.on { background: #d4edda; color: #155724; }
+        .pack-toggle.off { background: #fff3cd; color: #856404; }
+        .pack-upgrade { padding: 0.25rem 0.6rem; background: #f0f0f5; color: #515154; border: 1px solid #d2d2d7; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
+        .pack-upgrade:hover { background: #e8e8ed; }
+        .pack-error { color: #ff3b30; font-size: 0.75rem; margin-top: 0.3rem; }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <h1><span class="status-dot"></span>memos-graph Viewer</h1>
+    <div style="font-size:0.75rem; color:#86868b;">v0.1.0</div>
+</div>
+
+<div class="main">
+    <!-- Left: Search + Agent State -->
+    <div class="panel">
+        <div class="panel-header">记忆搜索</div>
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="搜索记忆..." onkeydown="if(event.key==='Enter')searchMemories()">
+            <button onclick="searchMemories()">搜索</button>
+        </div>
+        <div id="search-results"><div class="empty">输入关键词搜索记忆</div></div>
+        
+        <div class="panel-header" style="margin-top:1.5rem;">Agent 状态</div>
+        <div id="agent-state">
+            <div class="state-item">
+                <div class="state-label">Agent ID</div>
+                <div class="state-value" id="state-agent-id">-</div>
+            </div>
+            <div class="state-item">
+                <div class="state-label">Heartbeat</div>
+                <div id="state-heartbeat"><span class="heartbeat-badge ok">✓ 正常</span></div>
+            </div>
+            <div class="state-item">
+                <div class="state-label">最后活跃</div>
+                <div class="state-value" id="state-last-active">-</div>
+            </div>
+            <div class="state-item">
+                <div class="state-label">版本</div>
+                <div class="state-value" id="state-version">-</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Center: Tabs (Graph / Events / Promises) -->
+    <div class="panel" style="border-right:none; border-left:none;">
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('graph')">关系图谱</div>
+            <div class="tab" onclick="switchTab('events')">事件流</div>
+            <div class="tab" onclick="switchTab('promises')">承诺</div>
+            <div class="tab" onclick="switchTab('memories')">记忆</div>
+        </div>
+        
+        <div id="tab-graph" class="tab-content active">
+            <canvas id="graph-canvas"></canvas>
+            <div id="graph-empty-hint" style="display:none; font-size:0.8rem; color:#86868b; margin-top:1rem; text-align:center;">暂无实体数据 · 实体将在 Agent 运行时自动提取</div>
+            <div style="font-size:0.7rem; color:#86868b; margin-top:0.5rem;">拖拽节点查看关联</div>
+        </div>
+        
+        <div id="tab-events" class="tab-content">
+            <div id="events-list"><div class="loading">加载中</div></div>
+        </div>
+        
+        <div id="tab-promises" class="tab-content">
+            <div id="promises-list"><div class="loading">加载中</div></div>
+        </div>
+        
+        <div id="tab-memories" class="tab-content">
+            <div id="all-memories"><div class="loading">加载中</div></div>
+        </div>
+    </div>
+    
+    <!-- Right: Promises + Details -->
+    <div class="panel">
+        <div class="panel-header">待办承诺</div>
+        <div id="right-promises"><div class="empty">暂无承诺</div></div>
+        
+        <div class="panel-header" style="margin-top:1.5rem;">Packs</div>
+        <div class="pack-install-box">
+            <input type="text" id="pack-name" placeholder="Pack 名称" class="pack-input">
+            <input type="text" id="pack-url" placeholder="仓库 URL" class="pack-input">
+            <input type="text" id="pack-path" placeholder="安装路径 (可选)" class="pack-input">
+            <button class="pack-btn" onclick="installPack()">安装</button>
+        </div>
+        <div id="packs-list"><div class="loading">加载中</div></div>
+    </div>
+</div>
+
+<script>
+const API = '/api/v1';
+let currentAgent = 'test';
+
+async function api(path, opts = {}) {
+    const r = await fetch(API + path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+    if (!r.ok) throw new Error(`API ${path} failed: ${r.status}`);
+    return r.json();
+}
+
+async function searchMemories() {
+    const q = document.getElementById('search-input').value.trim();
+    if (!q) return;
+    const el = document.getElementById('search-results');
+    el.innerHTML = '<div class="loading">搜索中</div>';
+    try {
+        const data = await api('/memories/search', {
+            method: 'POST',
+            body: JSON.stringify({ query: q, agent_id: currentAgent, top_k: 10 })
+        });
+        if (!data.results.length) { el.innerHTML = '<div class="empty">无结果</div>'; return; }
+        el.innerHTML = data.results.map(m => `
+            <div class="memory-item" onclick="showMemoryDetail(${m.id})">
+                <div class="content">${esc(m.content)}</div>
+                <div class="meta">${m.scope} · ${timeAgo(m.created_at)}</div>
+            </div>`).join('');
+    } catch(e) { el.innerHTML = '<div class="empty">搜索失败: '+e.message+'</div>'; }
+}
+
+async function loadAgentState() {
+    try {
+        const data = await api('/agents/'+currentAgent+'/state');
+        document.getElementById('state-agent-id').textContent = data.agent_id || currentAgent;
+        document.getElementById('state-version').textContent = 'v' + (data.version || '-');
+        const hb = document.getElementById('state-heartbeat');
+        if (data.pending_heartbeat) {
+            hb.innerHTML = '<span class="heartbeat-badge pending">⏳ 待触发</span>';
+        } else {
+            hb.innerHTML = '<span class="heartbeat-badge ok">✓ 正常</span>';
+        }
+        if (data.last_heartbeat) {
+            document.getElementById('state-last-active').textContent = timeAgo(data.last_heartbeat);
+        }
+    } catch(e) { console.error('state error', e); }
+}
+
+async function loadEvents() {
+    try {
+        const data = await api('/events?agent_id='+currentAgent+'&limit=20');
+        const el = document.getElementById('events-list');
+        if (!data.events || !data.events.length) { el.innerHTML = '<div class="empty">暂无事件</div>'; return; }
+        el.innerHTML = data.events.map(e => `
+            <div class="event-item">
+                <div class="type">${e.event_type || 'event'}</div>
+                <div class="content">${esc(e.content || '')}</div>
+                <div class="time">${timeAgo(e.created_at)}</div>
+            </div>`).join('');
+    } catch(e) { document.getElementById('events-list').innerHTML = '<div class="empty">加载失败</div>'; }
+}
+
+async function loadPromises() {
+    try {
+        const data = await api('/promises?agent_id='+currentAgent);
+        const promises = data.promises || [];
+        const html = !promises.length ? '<div class="empty">暂无承诺</div>' :
+            promises.map(p => {
+                const overdue = p.due_at && new Date(p.due_at) < new Date() && p.status !== 'done';
+                return `<div class="promise-item ${p.status === 'done' ? 'done' : ''} ${overdue ? 'overdue' : ''}">
+                    <div class="content">${esc(p.content || '')}</div>
+                    <div class="deadline">${p.due_at ? '⏰ '+p.due_at : '无截止'} · ${p.status}</div>
+                </div>`;
+            }).join('');
+        document.getElementById('right-promises').innerHTML = html;
+        document.getElementById('promises-list').innerHTML = html;
+    } catch(e) { document.getElementById('promises-list').innerHTML = '<div class="empty">加载失败</div>'; }
+}
+
+async function loadPacks() {
+    try {
+        const packs = await api('/packs');
+        const el = document.getElementById('packs-list');
+        if (!packs.length) { el.innerHTML = '<div class="empty">暂无 Pack</div>'; return; }
+        el.innerHTML = packs.map(p => `
+            <div class="pack-item" id="pack-${p.id}">
+                <div class="pack-item-header">
+                    <span class="pack-item-name">${esc(p.name || p.id)}</span>
+                    <span class="pack-item-meta">v${p.version || '-'}</span>
+                </div>
+                <div class="pack-item-meta">${p.url || ''} ${p.install_path ? '· ' + p.install_path : ''}</div>
+                <div class="pack-actions">
+                    <button class="pack-toggle ${p.enabled ? 'on' : 'off'}" onclick="togglePack('${p.id}', ${!p.enabled})">
+                        ${p.enabled ? '停用' : '启用'}
+                    </button>
+                    <button class="pack-upgrade" onclick="upgradePack('${p.id}')">升级</button>
+                </div>
+            </div>`).join('');
+    } catch(e) { document.getElementById('packs-list').innerHTML = '<div class="empty">加载失败</div>'; }
+}
+
+async function installPack() {
+    const name = document.getElementById('pack-name').value.trim();
+    const url = document.getElementById('pack-url').value.trim();
+    const installPath = document.getElementById('pack-path').value.trim();
+    if (!name || !url) { alert('请填写名称和仓库 URL'); return; }
+    const btn = document.querySelector('.pack-btn');
+    btn.disabled = true;
+    try {
+        await api('/packs', {
+            method: 'POST',
+            body: JSON.stringify({ name, url, install_path: installPath || undefined })
+        });
+        document.getElementById('pack-name').value = '';
+        document.getElementById('pack-url').value = '';
+        document.getElementById('pack-path').value = '';
+        await loadPacks();
+    } catch(e) { alert('安装失败: ' + e.message); }
+    finally { btn.disabled = false; }
+}
+
+async function togglePack(id, enabled) {
+    const el = document.getElementById('pack-' + id);
+    try {
+        await api('/packs/' + id, {
+            method: 'PUT',
+            body: JSON.stringify({ enabled })
+        });
+        await loadPacks();
+    } catch(e) { alert('操作失败: ' + e.message); }
+}
+
+async function upgradePack(id) {
+    const el = document.getElementById('pack-' + id);
+    if (!confirm('确认升级此 Pack？')) return;
+    try {
+        await api('/packs/' + id + '/update', { method: 'PUT' });
+        await loadPacks();
+    } catch(e) { alert('升级失败: ' + e.message); }
+}
+
+async function loadAllMemories() {
+    try {
+        const data = await api('/memories?agent_id='+currentAgent+'&limit=50');
+        const el = document.getElementById('all-memories');
+        if (!data.memories || !data.memories.length) { el.innerHTML = '<div class="empty">暂无记忆</div>'; return; }
+        el.innerHTML = data.memories.map(m => `
+            <div class="memory-item" onclick="showMemoryDetail(${m.id})">
+                <div class="content">${esc(m.content)}</div>
+                <div class="meta">${m.scope} · ${timeAgo(m.created_at)}</div>
+            </div>`).join('');
+    } catch(e) { document.getElementById('all-memories').innerHTML = '<div class="empty">加载失败</div>'; }
+}
+
+function showMemoryDetail(id) {
+    // Highlight selected memory
+    document.querySelectorAll('.memory-item').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+}
+
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector(`.tab[onclick="switchTab('${name}')"]`).classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+}
+
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function timeAgo(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    const s = Math.floor((Date.now() - d) / 1000);
+    if (s < 60) return '刚刚';
+    if (s < 3600) return Math.floor(s/60)+'分钟前';
+    if (s < 86400) return Math.floor(s/3600)+'小时前';
+    return Math.floor(s/86400)+'天前';
+}
+
+// ── Graph state ──────────────────────────────────────────────
+let graphNodes = [];       // { id, label, entity_type, x, y, vx, vy, r }
+let graphEdges = [];       // { source, target }
+let graphAnimId = null;
+let graphHovered = null;
+let graphTooltip = null;
+
+// ── Load graph data then animate ────────────────────────────
+async function loadGraph() {
+    try {
+        // Fetch entities
+        const ents = await api('/entities?agent_id=' + currentAgent);
+        const entityList = Array.isArray(ents) ? ents : (ents.entities || []);
+
+        // Fetch edges — try dedicated endpoint first, fall back to empty
+        let edgeList = [];
+        try {
+            const edgesResp = await api('/entity-edges?agent_id=' + currentAgent);
+            edgeList = Array.isArray(edgesResp) ? edgesResp : (edgesResp.edges || []);
+        } catch (_) {
+            // No dedicated edges endpoint — skip edges
+        }
+
+        buildGraph(entityList, edgeList);
+        runLayout();
+    } catch(e) {
+        console.error('loadGraph failed:', e);
+    }
+}
+
+// ── Build node/edge arrays from API data ───────────────────
+function buildGraph(entities, edges) {
+    const W = 560, H = 360;
+    
+    // Empty state hint
+    const graphContainer = document.getElementById('tab-graph');
+    let emptyHint = document.getElementById('graph-empty-hint');
+    
+    if (!entities || entities.length === 0) {
+        if (!emptyHint) {
+            emptyHint = document.createElement('div');
+            emptyHint.id = 'graph-empty-hint';
+            emptyHint.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #86868b; font-size: 0.875rem; pointer-events: none;';
+            emptyHint.innerHTML = '<div>暂无图谱数据</div><div style="font-size: 0.75rem; margin-top: 0.5rem;">实体将在此处显示为节点</div>';
+            graphContainer.style.position = 'relative';
+            graphContainer.appendChild(emptyHint);
+        } else {
+            emptyHint.style.display = 'block';
+        }
+        graphNodes = [];
+        graphEdges = [];
+        return;
+    } else {
+        if (emptyHint) emptyHint.style.display = 'none';
+    }
+
+    // Count connections per entity
+    const connCount = {};
+    edges.forEach(e => {
+        connCount[e.source] = (connCount[e.source] || 0) + 1;
+        connCount[e.target] = (connCount[e.target] || 0) + 1;
+    });
+
+    // Node radius: min 14px, +2px per connection, cap at 36
+    const getR = id => Math.min(36, 14 + 2 * (connCount[id] || 0));
+
+    graphNodes = entities.map((en, i) => ({
+        id:       en.id,
+        label:    en.name || en.content?.slice(0, 20) || String(i),
+        entity_type: en.entity_type || en.type || 'entity',
+        x:  Math.random() * W,
+        y:  Math.random() * H,
+        vx: 0,
+        vy: 0,
+        r:  getR(en.id),
+    }));
+
+    graphEdges = edges
+        .filter(e => graphNodes.find(n => n.id === e.source) && graphNodes.find(n => n.id === e.target))
+        .map(e => ({ source: e.source, target: e.target }));
+}
+
+// ── Force-directed layout (100 iterations, then render) ────
+function runLayout() {
+    const W = 560, H = 360;
+    const ITERS = 100;
+    const CENTER_X = W / 2, CENTER_Y = H / 2;
+
+    // Build quick lookup
+    const nodeById = Object.fromEntries(graphNodes.map(n => [n.id, n]));
+
+    let iter = 0;
+    const step = () => {
+        if (iter >= ITERS) {
+            renderGraph();
+            return;
+        }
+
+        graphNodes.forEach(n => {
+            // ── 1) Gravity toward center ──────────────────────────
+            n.vx += (CENTER_X - n.x) * 0.01;
+            n.vy += (CENTER_Y - n.y) * 0.01;
+
+            // ── 2) Pairwise repulsion ─────────────────────────────
+            graphNodes.forEach(m => {
+                if (m.id === n.id) return;
+                const dx = n.x - m.x, dy = n.y - m.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                const repel = 600 / (dist * dist);
+                n.vx += (dx / dist) * repel;
+                n.vy += (dy / dist) * repel;
+            });
+        });
+
+        // ── 3) Spring force along edges ──────────────────────────
+        graphEdges.forEach(e => {
+            const s = nodeById[e.source], t = nodeById[e.target];
+            if (!s || !t) return;
+            const dx = t.x - s.x, dy = t.y - s.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const ideal = 100, k = 0.04;
+            s.vx += dx * k;
+            s.vy += dy * k;
+            t.vx -= dx * k;
+            t.vy -= dy * k;
+        });
+
+        // ── 4) Damping & integrate ───────────────────────────────
+        graphNodes.forEach(n => {
+            n.vx *= 0.88;
+            n.vy *= 0.88;
+            n.x  += n.vx;
+            n.y  += n.vy;
+            // Keep inside canvas
+            n.x = Math.max(n.r, Math.min(W - n.r, n.x));
+            n.y = Math.max(n.r, Math.min(H - n.r, n.y));
+        });
+
+        iter++;
+        requestAnimationFrame(step);
+    };
+
+    requestAnimationFrame(step);
+}
+
+// ── Render ───────────────────────────────────────────────────
+function renderGraph() {
+    const canvas = document.getElementById('graph-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width  = 560;
+    canvas.height = 360;
+
+    ctx.clearRect(0, 0, 560, 360);
+
+    // Edges
+    const nodeById = Object.fromEntries(graphNodes.map(n => [n.id, n]));
+    ctx.strokeStyle = 'rgba(150,150,150,0.3)';
+    ctx.lineWidth = 1.5;
+    graphEdges.forEach(e => {
+        const s = nodeById[e.source], t = nodeById[e.target];
+        if (!s || !t) return;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(t.x, t.y);
+        ctx.stroke();
+    });
+
+    // Nodes
+    graphNodes.forEach(n => {
+        // Glow on hover
+        if (graphHovered && graphHovered.id === n.id) {
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.r + 5, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(74,158,255,0.25)';
+            ctx.fill();
+        }
+
+        // Circle
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx.fillStyle = '#4a9eff';
+        ctx.fill();
+
+        // Label (clipped to circle)
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.fillStyle = '#fff';
+        ctx.font = `${Math.max(9, n.r * 0.55)|0}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const maxW = (n.r - 4) * 2;
+        const label = n.label.length > 8 ? n.label.slice(0, 7) + '…' : n.label;
+        ctx.fillText(label, n.x, n.y);
+        ctx.restore();
+    });
+
+    // Tooltip
+    if (graphHovered) {
+        if (!graphTooltip) {
+            graphTooltip = document.createElement('div');
+            graphTooltip.style.cssText = 'position:absolute;background:#1d1d1f;color:#fff;padding:4px 8px;border-radius:6px;font-size:11px;pointer-events:none;z-index:10;white-space:nowrap;';
+            document.getElementById('tab-graph').style.position = 'relative';
+            document.getElementById('tab-graph').appendChild(graphTooltip);
+        }
+        const rect = canvas.getBoundingClientRect();
+        graphTooltip.style.display = 'block';
+        graphTooltip.textContent = graphHovered.label + ' [' + graphHovered.entity_type + ']';
+        graphTooltip.style.left = (rect.left - rect.left + graphHovered.x + graphHovered.r + 8) + 'px';
+        graphTooltip.style.top  = (graphHovered.y - 10) + 'px';
+    } else if (graphTooltip) {
+        graphTooltip.style.display = 'none';
+    }
+}
+
+// ── Mouse interaction ────────────────────────────────────────
+function setupGraphInteraction() {
+    const canvas = document.getElementById('graph-canvas');
+    
+    // Click handler for nodes
+    canvas.addEventListener('click', e => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        
+        // Check if clicked on any node
+        for (const n of graphNodes) {
+            const dx = mx - n.x, dy = my - n.y;
+            if (Math.sqrt(dx*dx + dy*dy) <= n.r) {
+                showNodeDetail(n);
+                return;
+            }
+        }
+    });
+    
+    canvas.addEventListener('mousemove', e => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const prev = graphHovered;
+        graphHovered = null;
+        for (const n of graphNodes) {
+            const dx = mx - n.x, dy = my - n.y;
+            if (Math.sqrt(dx*dx + dy*dy) <= n.r) { graphHovered = n; break; }
+        }
+        if (graphHovered !== prev) renderGraph();
+    });
+    canvas.addEventListener('mouseleave', () => {
+        graphHovered = null;
+        renderGraph();
+    });
+}
+
+// Show node detail panel
+function showNodeDetail(node) {
+    const detailHtml = `
+        <div style="padding: 0.75rem;">
+            <div style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">${esc(node.label)}</div>
+            <div style="font-size: 0.75rem; color: #86868b; margin-bottom: 0.75rem;">类型：${esc(node.entity_type)}</div>
+            <div style="font-size: 0.75rem; color: #86868b;">ID: ${esc(node.id)}</div>
+            <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #e5e5e7;">
+                <div style="font-size: 0.7rem; color: #86868b; margin-bottom: 0.5rem;">关联 Chunks</div>
+                <div style="font-size: 0.8rem; color: #1d1d1f;">点击创建 Pack 或查看关联记忆</div>
+            </div>
+        </div>
+    `;
+    
+    // Create or update detail panel on the right
+    let detailPanel = document.getElementById('node-detail-panel');
+    if (!detailPanel) {
+        detailPanel = document.createElement('div');
+        detailPanel.id = 'node-detail-panel';
+        detailPanel.style.cssText = 'margin-top: 1.5rem; background: #f5f5f7; border-radius: 8px; overflow: hidden;';
+        const rightPanel = document.querySelector('.panel:last-child');
+        if (rightPanel) rightPanel.appendChild(detailPanel);
+    }
+    detailPanel.innerHTML = detailHtml;
+}
+
+// Init
+async function init() {
+    setupGraphInteraction();
+    await Promise.all([loadAgentState(), loadEvents(), loadPromises(), loadPacks(), loadAllMemories()]);
+    loadGraph();
+
+    // Auto-refresh
+    setInterval(loadAgentState, 10000);
+    setInterval(loadEvents, 15000);
+    setInterval(loadPromises, 15000);
+}
+init();
+</script>
+</body>
+</html>

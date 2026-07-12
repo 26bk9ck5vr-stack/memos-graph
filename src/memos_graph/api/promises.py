@@ -115,6 +115,8 @@ async def update_promise(
 
     if update.status is not None:
         promise.status = update.status
+        if update.status == "fulfilled" and promise.fulfilled_at is None:
+            promise.fulfilled_at = datetime.utcnow()
     if update.fulfilled_at is not None:
         promise.fulfilled_at = update.fulfilled_at
 

@@ -3,12 +3,14 @@
 from datetime import datetime
 from sqlalchemy import (
     Column, Integer, BigInteger, String, Text, Float, Boolean, DateTime,
-    ForeignKey, Index, UniqueConstraint, text
+    ForeignKey, Index, UniqueConstraint, text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
-from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB, BIGINT, TSVECTOR
+from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy import Computed
 from pgvector.sqlalchemy import Vector
-from . import Base
+
+Base = declarative_base()
 
 
 class Chunk(Base):
@@ -37,10 +39,27 @@ class ChunkVector(Base):
     __tablename__ = "chunk_vectors"
 
     chunk_id = Column(BigInteger, ForeignKey("chunks.id", ondelete="CASCADE"), primary_key=True)
-    embedding = Column(Vector(1024), nullable=False)
+    embedding = Column(Vector(768), nullable=False)
     model = Column(String, nullable=False)
 
     chunk = relationship("Chunk")
+
+
+class ChunkEntity(Base):
+    """Association table: which entities appear in which chunks."""
+    __tablename__ = "chunk_entities"
+
+    chunk_id = Column(BigInteger, ForeignKey("chunks.id", ondelete="CASCADE"), primary_key=True)
+    entity_id = Column(BigInteger, ForeignKey("entities.id", ondelete="CASCADE"), primary_key=True)
+    confidence = Column(Float, default=1.0)
+
+    chunk = relationship("Chunk")
+    entity = relationship("Entity")
+
+    __table_args__ = (
+        Index("idx_chunk_entity_chunk", "chunk_id"),
+        Index("idx_chunk_entity_entity", "entity_id"),
+    )
 
 
 class Entity(Base):
@@ -123,7 +142,7 @@ class EventVector(Base):
     __tablename__ = "event_vectors"
 
     event_id = Column(BigInteger, ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
-    embedding = Column(Vector(1024), nullable=False)
+    embedding = Column(Vector(768), nullable=False)
     model = Column(String, nullable=False)
 
 
@@ -136,7 +155,7 @@ class Promise(Base):
     user_id = Column(String)
     content = Column(Text, nullable=False)
     status = Column(String, default="open")  # open | fulfilled | broken | expired
-    due_at = Column(DateTime)
+    deadline = Column("due_at", DateTime)
     fulfilled_at = Column(DateTime)
     event_id = Column(BigInteger, ForeignKey("events.id"))
 

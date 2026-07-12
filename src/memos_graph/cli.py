@@ -80,52 +80,64 @@ def viewer(port: int, host: str):
 @click.option("--migrate-sessions", is_flag=True, help="Migrate Nako session files")
 def pack_install(pack_path: str, migrate_sessions: bool):
     """Install an Agent Pack."""
+    import asyncio
     from memos_graph.pack.installer import install_pack
-    from pathlib import Path
 
-    install_pack(Path(pack_path), migrate_sessions=migrate_sessions)
-    click.echo(f"Pack installed: {pack_path}")
+    result = asyncio.run(install_pack(pack_path, {"migrate_sessions": migrate_sessions}))
+    click.echo(f"Pack installed: {result['pack_id']} v{result['version']}")
 
 
 @main.command()
 def pack_list():
     """List installed Agent Packs."""
+    import asyncio
     from memos_graph.pack.registry import list_packs
 
-    packs = list_packs()
+    packs = asyncio.run(list_packs())
     if not packs:
         click.echo("No packs installed.")
         return
 
     click.echo("Installed packs:")
     for pack in packs:
-        click.echo(f"  - {pack['id']} v{pack['version']} ({pack['status']})")
+        status = "enabled" if pack.get("enabled", True) else "disabled"
+        click.echo(f"  - {pack['id']} v{pack['version']} ({status})")
 
 
 @main.command()
 @click.argument("pack_id")
 def pack_run(pack_id: str):
     """Run an Agent Pack."""
+    import asyncio
     from memos_graph.pack.runner import run_pack
-    run_pack(pack_id)
+
+    result = asyncio.run(run_pack(pack_id))
+    click.echo(f"Pack {pack_id} v{result['version']} completed")
+    for file_id, res in result.get("agent_results", {}).items():
+        click.echo(f"  [{res['status']}] {file_id}")
 
 
 @main.command()
 @click.argument("pack_id")
 def pack_update(pack_id: str):
     """Update an Agent Pack."""
+    import asyncio
     from memos_graph.pack.installer import update_pack
-    update_pack(pack_id)
-    click.echo(f"Pack updated: {pack_id}")
+
+    result = asyncio.run(update_pack(pack_id))
+    click.echo(f"Pack {pack_id} updated: v{result['old_version']} → v{result['new_version']}")
 
 
 @main.command()
 @click.argument("pack_id")
-def pack_uninstall(pack_id: str):
+@click.option("--keep-data/--no-keep-data", default=True, help="Keep pack data after uninstall")
+def pack_uninstall(pack_id: str, keep_data: bool):
     """Uninstall an Agent Pack."""
+    import asyncio
     from memos_graph.pack.installer import uninstall_pack
-    uninstall_pack(pack_id)
-    click.echo(f"Pack uninstalled: {pack_id}")
+
+    result = asyncio.run(uninstall_pack(pack_id, keep_data=keep_data))
+    click.echo(f"Pack {pack_id} uninstalled (data kept: {result['data_kept']})")
 
 
 @main.command()
