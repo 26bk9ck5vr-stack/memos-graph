@@ -185,7 +185,9 @@
 
 <script>
 const API = '/api/v1';
-let currentAgent = 'test';
+// 从 URL 参数读取 agent_id，默认使用 'hermes'
+const urlParams = new URLSearchParams(window.location.search);
+let currentAgent = urlParams.get('agent_id') || 'hermes';
 
 async function api(path, opts = {}) {
     const r = await fetch(API + path, { headers: { 'Content-Type': 'application/json' }, ...opts });
