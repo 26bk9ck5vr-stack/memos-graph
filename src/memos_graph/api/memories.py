@@ -61,7 +61,6 @@ class SearchResponse(BaseModel):
 async def create_memory(
     memory: MemoryCreate,
     request: Request,
-    session: AsyncSession = Depends(get_session),
 ):
     """Create a new memory chunk with full ingest pipeline (entities, events, promises)."""
     from memos_graph.ingest import IngestPipeline
@@ -69,7 +68,14 @@ async def create_memory(
     from memos_graph.embedding import EmbeddingService
     from memos_graph.llm.client import LLMClient
     from memos_graph.db.models import Chunk
+    from memos_graph.db.session import _async_session_factory
+    from memos_graph.db.session import create_session_factory
     from sqlalchemy import select
+    
+    # Ensure session factory is initialized
+    if _async_session_factory is None:
+        cfg = load_config()
+        create_session_factory(cfg.database.url)
     
     # Use global services from app.state if available, otherwise create new ones
     if hasattr(request.app.state, 'llm_client') and hasattr(request.app.state, 'embedding_service'):
@@ -97,11 +103,11 @@ async def create_memory(
         embedding_service=embedding_service,
     )
     
-    # Run full ingest pipeline
+    # Run full ingest pipeline with its own session
     result = await pipeline.ingest(
         text=memory.content,
         agent_id=memory.agent_id,
-        session=session,
+        session=None,  # Let pipeline create its own session
         user_id=memory.metadata.get("user_id") if memory.metadata else None,
         scope=memory.scope or "private",
         extract_entities=True,
@@ -111,16 +117,17 @@ async def create_memory(
     )
     
     # Fetch the created chunk
-    chunk_result = await session.execute(
-        select(Chunk).where(Chunk.id == result["chunk_id"])
-    )
-    chunk = chunk_result.scalar_one()
+    async with _async_session_factory() as session:
+        chunk_result = await session.execute(
+            select(Chunk).where(Chunk.id == result["chunk_id"])
+        )
+        chunk = chunk_result.scalar_one()
     
     return MemoryResponse(
         id=chunk.id,
         agent_id=chunk.agent_id,
         scope=chunk.scope,
-        role=chunk.role,
+        role=memory.role,
         content=chunk.content,
         metadata=chunk.metadata_,
         created_at=chunk.created_at,

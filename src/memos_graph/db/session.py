@@ -3,9 +3,10 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import Depends
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 
+from memos_graph.config import Config
 
 _async_session_factory = None
 
@@ -26,7 +27,7 @@ def create_session_factory(database_url: str, pool_size: int = 10, pool_recycle:
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency. Lazy-initializes the session factory on first call."""
+    """FastAPI dependency for session. DO NOT use in application code - use _async_session_factory() instead."""
     global _async_session_factory
     if _async_session_factory is None:
         from memos_graph.config import load_config

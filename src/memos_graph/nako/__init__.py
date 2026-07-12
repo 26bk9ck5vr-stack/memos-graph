@@ -224,7 +224,8 @@ class NakoMigrationPipeline:
 
         # Create chunk
         if not dry_run:
-            async with get_session() as session:
+            from memos_graph.db.session import _async_session_factory
+            async with _async_session_factory() as session:
                 chunk = Chunk(
                     agent_id=agent_id,
                     scope="private",
@@ -316,7 +317,8 @@ class JSONLImporter:
 
         stats = {"lines_processed": 0, "chunks_created": 0, "errors": 0}
 
-        async with get_session() as session:
+        from memos_graph.db.session import _async_session_factory
+        async with _async_session_factory() as session:
             with open(path) as f:
                 for line_num, line in enumerate(f, 1):
                     line = line.strip()
