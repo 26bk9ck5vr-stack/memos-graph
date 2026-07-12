@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from memos_graph.db.models import Chunk, ChunkEntity, ChunkVector, Entity, Event, EventVector, Promise, UserProfile
+from memos_graph.db.models import Chunk, ChunkEntity, ChunkVector, Entity, EntityEdge, Event, EventVector, Promise, UserProfile
 from memos_graph.llm.client import LLMClient
 from memos_graph.recall import EmbeddingService
 from sqlalchemy import select

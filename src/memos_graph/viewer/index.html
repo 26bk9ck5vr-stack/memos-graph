@@ -333,13 +333,15 @@ async function loadAllMemories() {
     try {
         const data = await api('/memories?agent_id='+currentAgent+'&limit=50');
         const el = document.getElementById('all-memories');
-        if (!data.memories || !data.memories.length) { el.innerHTML = '<div class="empty">暂无记忆</div>'; return; }
-        el.innerHTML = data.memories.map(m => `
+        // API 直接返回数组
+        const memories = Array.isArray(data) ? data : (data.memories || []);
+        if (!memories.length) { el.innerHTML = '<div class="empty">暂无记忆</div>'; return; }
+        el.innerHTML = memories.map(m => `
             <div class="memory-item" onclick="showMemoryDetail(${m.id})">
                 <div class="content">${esc(m.content)}</div>
                 <div class="meta">${m.scope} · ${timeAgo(m.created_at)}</div>
             </div>`).join('');
-    } catch(e) { document.getElementById('all-memories').innerHTML = '<div class="empty">加载失败</div>'; }
+    } catch(e) { console.error('memories error', e); document.getElementById('all-memories').innerHTML = '<div class="empty">加载失败</div>'; }
 }
 
 function showMemoryDetail(id) {
