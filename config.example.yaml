@@ -6,6 +6,12 @@ database:
   pool_size: 10
   pool_recycle: 3600
 
+# Neo4j Graph Database (for entity relationships)
+neo4j:
+  uri: bolt://localhost:7687
+  user: neo4j
+  password: memos123
+
 llm:
   # Example for Xunfei API
   base_url: https://maas-coding-api.cn-huabei-1.xf-yun.com/v2

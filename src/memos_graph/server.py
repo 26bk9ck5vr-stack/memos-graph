@@ -9,7 +9,7 @@ import logging
 from memos_graph.config import load_config, Config
 from memos_graph.db.session import create_session_factory, _async_session_factory
 from memos_graph.db.models import Base
-from memos_graph.api import health, memories, agents, events, promises, packs, users, graph
+from memos_graph.api import health, memories, agents, events, promises, packs, users, graph, neo4j_graph
 from memos_graph.llm.client import LLMClient
 from memos_graph.heartbeat.scheduler import HeartbeatScheduler
 from memos_graph.sync.hermes_sync import HermesSyncWorker
@@ -50,6 +50,12 @@ def create_app(config_path: Path | None = None, config: Config | None = None) ->
     @app.get("/", response_class=FileResponse)
     async def root():
         viewer_path = Path(__file__).parent / "viewer" / "index.html"
+        return FileResponse(viewer_path)
+    
+    # Neo4j Graph Viewer
+    @app.get("/neo4j-graph", response_class=FileResponse)
+    async def neo4j_graph_viewer():
+        viewer_path = Path(__file__).parent / "viewer" / "neo4j-graph.html"
         return FileResponse(viewer_path)
 
     # Initialize LLM client
@@ -128,5 +134,6 @@ def create_app(config_path: Path | None = None, config: Config | None = None) ->
     app.include_router(packs.router, prefix="/api/v1", tags=["packs"])
     app.include_router(users.router, prefix="/api/v1", tags=["users"])
     app.include_router(graph.router, prefix="/api/v1", tags=["graph"])
+    app.include_router(neo4j_graph.router, prefix="/api/v1", tags=["neo4j"])
 
     return app

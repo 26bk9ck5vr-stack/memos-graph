@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>memos-graph - Neo4j 图谱</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; height: 100vh; overflow: hidden; }
+        .container { display: grid; grid-template-columns: 300px 1fr 300px; height: 100vh; }
+        
+        /* Side panels */
+        .panel { background: #16213e; border-right: 1px solid #0f3460; padding: 1rem; overflow-y: auto; }
+        .panel:last-child { border-right: none; border-left: 1px solid #0f3460; }
+        .panel h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #e94560; }
+        
+        /* Graph container */
+        .graph-container { position: relative; background: #1a1a2e; }
+        #graph { width: 100%; height: 100vh; }
+        
+        /* Entity list */
+        .entity-item { padding: 0.75rem; margin-bottom: 0.5rem; background: #0f3460; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .entity-item:hover { background: #1a4a8a; }
+        .entity-item .name { font-weight: 600; margin-bottom: 0.25rem; }
+        .entity-item .type { font-size: 0.75rem; color: #e94560; }
+        
+        /* Loading */
+        .loading { text-align: center; padding: 2rem; color: #888; }
+        
+        /* Controls */
+        .controls { position: absolute; top: 1rem; right: 1rem; z-index: 1000; display: flex; gap: 0.5rem; }
+        .btn { padding: 0.5rem 1rem; background: #e94560; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem; }
+        .btn:hover { background: #ff6b6b; }
+        
+        /* Agent selector */
+        .agent-select { width: 100%; padding: 0.5rem; margin-bottom: 1rem; background: #0f3460; border: 1px solid #1a4a8a; border-radius: 6px; color: #eee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Left panel: Entity list -->
+        <div class="panel">
+            <h2>🔍 实体列表</h2>
+            <select id="agent-selector" class="agent-select" onchange="loadGraph()">
+                <option value="hermes">Hermes</option>
+                <option value="nako">Nako</option>
+                <option value="test">Test</option>
+            </select>
+            <div id="entity-list">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+        
+        <!-- Center: Graph visualization -->
+        <div class="graph-container">
+            <div id="graph"></div>
+            <div class="controls">
+                <button class="btn" onclick="resetLayout()">🔄 重置布局</button>
+                <button class="btn" onclick="toggleLabels()">🏷️ 显示标签</button>
+            </div>
+        </div>
+        
+        <!-- Right panel: Details -->
+        <div class="panel">
+            <h2>📊 详情</h2>
+            <div id="details">
+                <div class="loading">点击节点查看详情</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API = '/api/v1/neo4j';
+        let chart = null;
+        let graphData = { nodes: [], links: [] };
+        let showLabels = true;
+        
+        // Initialize ECharts
+        function initChart() {
+            chart = echarts.init(document.getElementById('graph'));
+            
+            chart.on('click', function(params) {
+                if (params.dataType === 'node') {
+                    showNodeDetails(params.data);
+                }
+            });
+            
+            window.addEventListener('resize', () => chart.resize());
+        }
+        
+        async function loadGraph() {
+            const agentId = document.getElementById('agent-selector').value;
+            const entityList = document.getElementById('entity-list');
+            entityList.innerHTML = '<div class="loading">加载图谱数据...</div>';
+            
+            try {
+                // Fetch graph data from Neo4j
+                const response = await fetch(`${API}/graph?agent_id=${agentId}&limit=500`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                
+                graphData = {
+                    nodes: data.nodes.map(n => ({
+                        id: n.id,
+                        name: n.name,
+                        value: 10,
+                        symbolSize: 15 + (n.metadata?.connection_count || 0) * 2,
+                        category: getTypeCategory(n.type),
+                        type: n.type,
+                        metadata: n.metadata,
+                        itemStyle: { color: getTypeColor(n.type) }
+                    })),
+                    links: data.links.map(l => ({
+                        source: l.source,
+                        target: l.target,
+                        value: l.type,
+                        lineStyle: { width: 2, curveness: 0.1 }
+                    })),
+                    categories: [
+                        { name: 'person' }, { name: 'place' }, { name: 'organization' },
+                        { name: 'object' }, { name: 'concept' }, { name: 'event' }, { name: 'other' }
+                    ]
+                };
+                
+                renderGraph();
+                loadEntityList(agentId);
+                
+            } catch (e) {
+                console.error('Failed to load graph:', e);
+                entityList.innerHTML = `<div class="loading">加载失败：${e.message}</div>`;
+            }
+        }
+        
+        function renderGraph() {
+            const option = {
+                tooltip: {
+                    formatter: function(x) {
+                        return `<strong>${x.data.name}</strong><br/>类型：${x.data.type}`;
+                    }
+                },
+                legend: [{
+                    data: graphData.categories.map(c => c.name),
+                    textStyle: { color: '#eee' },
+                    top: 'bottom'
+                }],
+                series: [{
+                    type: 'graph',
+                    layout: 'force',
+                    data: graphData.nodes,
+                    links: graphData.links,
+                    categories: graphData.categories,
+                    roam: true,
+                    label: {
+                        show: showLabels,
+                        position: 'right',
+                        formatter: '{b}',
+                        color: '#fff'
+                    },
+                    force: {
+                        repulsion: 300,
+                        gravity: 0.1,
+                        edgeLength: [50, 200],
+                        friction: 0.6
+                    },
+                    lineStyle: {
+                        color: 'source',
+                        curveness: 0.1,
+                        opacity: 0.7
+                    },
+                    emphasis: {
+                        focus: 'adjacency',
+                        lineStyle: { width: 5 }
+                    }
+                }]
+            };
+            
+            chart.setOption(option);
+        }
+        
+        async function loadEntityList(agentId) {
+            const entityList = document.getElementById('entity-list');
+            try {
+                const response = await fetch(`${API}/entities?agent_id=${agentId}&limit=100`);
+                const entities = await response.json();
+                
+                entityList.innerHTML = entities.map(e => `
+                    <div class="entity-item" onclick="focusNode(${e.id})">
+                        <div class="name">${e.name}</div>
+                        <div class="type">${e.type}</div>
+                    </div>
+                `).join('');
+                
+            } catch (e) {
+                entityList.innerHTML = `<div class="loading">加载失败</div>`;
+            }
+        }
+        
+        function focusNode(nodeId) {
+            const node = graphData.nodes.find(n => n.id === nodeId);
+            if (node) {
+                chart.dispatchAction({
+                    type: 'focusNodeAdjacency',
+                    seriesIndex: 0,
+                    dataIndex: graphData.nodes.indexOf(node)
+                });
+            }
+        }
+        
+        function showNodeDetails(node) {
+            const details = document.getElementById('details');
+            details.innerHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <h3 style="color: #e94560; margin-bottom: 0.5rem;">${node.name}</h3>
+                    <div style="color: #888; font-size: 0.875rem;">类型：${node.type}</div>
+                </div>
+                <div>
+                    <h4 style="margin-bottom: 0.5rem; color: #eee;">元数据:</h4>
+                    <pre style="background: #0f3460; padding: 0.75rem; border-radius: 6px; font-size: 0.75rem; overflow-x: auto;">${JSON.stringify(node.metadata || {}, null, 2)}</pre>
+                </div>
+            `;
+        }
+        
+        function resetLayout() {
+            chart.setOption({
+                series: [{
+                    layout: 'force',
+                    force: { repulsion: 300 }
+                }]
+            });
+        }
+        
+        function toggleLabels() {
+            showLabels = !showLabels;
+            chart.setOption({
+                series: [{
+                    label: { show: showLabels }
+                }]
+            });
+        }
+        
+        function getTypeCategory(type) {
+            const types = ['person', 'place', 'organization', 'object', 'concept', 'event'];
+            return types.indexOf(type) >= 0 ? types.indexOf(type) : 6;
+        }
+        
+        function getTypeColor(type) {
+            const colors = {
+                person: '#e94560',
+                place: '#0f3460',
+                organization: '#533483',
+                object: '#16213e',
+                concept: '#0f3460',
+                event: '#e94560',
+                other: '#888'
+            };
+            return colors[type] || colors.other;
+        }
+        
+        // Initialize
+        initChart();
+        loadGraph();
+    </script>
+</body>
+</html>
