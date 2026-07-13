@@ -129,6 +129,15 @@ class LLMSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="MEMOS_LLM_")
 
 
+class Neo4jSettings(BaseSettings):
+    """Neo4j settings."""
+    uri: str = Field(default="bolt://localhost:7687")
+    username: str = Field(default="neo4j")
+    password: str = Field(default="memos2024")
+
+    model_config = SettingsConfigDict(env_prefix="MEMOS_NEO4J_")
+
+
 class ServerSettings(BaseSettings):
     """Server settings."""
     host: str = Field(default="127.0.0.1")
@@ -161,6 +170,7 @@ class Config(BaseSettings):
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     llm: LLMSettings = Field(default_factory=LLMSettings)
+    neo4j: Neo4jSettings = Field(default_factory=Neo4jSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
     viewer: ViewerSettings = Field(default_factory=ViewerSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)

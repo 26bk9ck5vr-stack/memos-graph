@@ -140,18 +140,19 @@ class PromiseExtractor:
 
         promise_ids = []
         for p in extracted:
+            # Extract deadline if present
             due_at = None
             if p.get("deadline"):
                 try:
                     due_at = datetime.fromisoformat(p["deadline"].replace("Z", "+00:00"))
-                except ValueError:
-                    pass
-
+                except Exception:
+                    logger.warning(f"Invalid deadline format: {p.get('deadline')}")
+            
             promise = Promise(
                 agent_id=agent_id,
                 content=p.get("content", "")[:500],
                 status=p.get("status", "open"),
-                due_at=due_at,
+                deadline=due_at,
             )
             session.add(promise)
             await session.flush()
@@ -351,7 +352,7 @@ class IngestPipeline:
             for rel in relations:
                 source_name = rel.get("source", "")
                 target_name = rel.get("target", "")
-                rel_type = rel.get("type", "related_to")
+                rel_type = rel.get("type", "related")
                 
                 if not source_name or not target_name:
                     continue
@@ -363,15 +364,15 @@ class IngestPipeline:
                     # Check if relation already exists
                     existing_rel = await session.execute(
                         select(EntityEdge).where(
-                            EntityEdge.source_entity_id == source_id,
-                            EntityEdge.target_entity_id == target_id,
+                            EntityEdge.from_entity_id == source_id,
+                            EntityEdge.to_entity_id == target_id,
                             EntityEdge.relation_type == rel_type
                         )
                     )
                     if not existing_rel.scalar_one_or_none():
                         edge = EntityEdge(
-                            source_entity_id=source_id,
-                            target_entity_id=target_id,
+                            from_entity_id=source_id,
+                            to_entity_id=target_id,
                             relation_type=rel_type,
                             agent_id=agent_id
                         )

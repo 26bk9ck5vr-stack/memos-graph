@@ -17,7 +17,7 @@ class PromiseCreate(BaseModel):
     agent_id: str
     user_id: Optional[str] = None
     content: str
-    due_at: Optional[datetime] = None
+    deadline: Optional[datetime] = None
 
 
 class PromiseUpdate(BaseModel):
@@ -33,7 +33,7 @@ class PromiseResponse(BaseModel):
     user_id: Optional[str]
     content: str
     status: str
-    due_at: Optional[datetime]
+    deadline: Optional[datetime]
     fulfilled_at: Optional[datetime]
     created_at: datetime
 
@@ -48,7 +48,7 @@ async def create_promise(
         agent_id=promise.agent_id,
         user_id=promise.user_id,
         content=promise.content,
-        due_at=promise.due_at,
+        deadline=promise.deadline,
     )
     session.add(promise_model)
     await session.commit()
@@ -60,7 +60,7 @@ async def create_promise(
         user_id=promise_model.user_id,
         content=promise_model.content,
         status=promise_model.status,
-        due_at=promise_model.due_at,
+        deadline=promise_model.deadline,
         fulfilled_at=promise_model.fulfilled_at,
         created_at=promise_model.created_at,
     )
@@ -90,7 +90,7 @@ async def list_promises(
             user_id=p.user_id,
             content=p.content,
             status=p.status,
-            due_at=p.due_at,
+            deadline=p.deadline,
             fulfilled_at=p.fulfilled_at,
             created_at=p.created_at,
         )
@@ -129,7 +129,7 @@ async def update_promise(
         user_id=promise.user_id,
         content=promise.content,
         status=promise.status,
-        due_at=promise.due_at,
+        deadline=promise.deadline,
         fulfilled_at=promise.fulfilled_at,
         created_at=promise.created_at,
     )

@@ -2,8 +2,7 @@
 
 import logging
 from typing import List, Dict, Any, Optional
-from neo4j import AsyncGraphDatabase
-from neo4j.asyncio import ManagedTransaction
+from neo4j import AsyncGraphDatabase, ManagedTransaction
 
 logger = logging.getLogger(__name__)
 
@@ -220,8 +219,8 @@ def get_neo4j_client() -> Neo4jClient:
         cfg = load_config()
         
         neo4j_uri = cfg.neo4j.uri if hasattr(cfg, 'neo4j') else "bolt://localhost:7687"
-        neo4j_user = cfg.neo4j.user if hasattr(cfg, 'neo4j') else "neo4j"
-        neo4j_password = cfg.neo4j.password if hasattr(cfg, 'neo4j') else "memos123"
+        neo4j_user = cfg.neo4j.username if hasattr(cfg, 'neo4j') else "neo4j"
+        neo4j_password = cfg.neo4j.password if hasattr(cfg, 'neo4j') else "memos2024"
         
         _neo4j_client = Neo4jClient(
             uri=neo4j_uri,

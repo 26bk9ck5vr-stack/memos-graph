@@ -148,10 +148,12 @@
             <div class="tab" onclick="switchTab('memories')">记忆</div>
         </div>
         
-        <div id="tab-graph" class="tab-content active">
-            <canvas id="graph-canvas"></canvas>
-            <div id="graph-empty-hint" style="display:none; font-size:0.8rem; color:#86868b; margin-top:1rem; text-align:center;">暂无实体数据 · 实体将在 Agent 运行时自动提取</div>
-            <div style="font-size:0.7rem; color:#86868b; margin-top:0.5rem;">拖拽节点查看关联</div>
+        <div id="tab-graph" class="tab-content">
+            <div style="text-align: center; padding: 3rem;">
+                <h3 style="color: #667eea; margin-bottom: 1rem;">🕸️ Neo4j 图谱可视化</h3>
+                <p style="color: #86868b; margin-bottom: 1.5rem;">查看实体关系图谱</p>
+                <a href="/neo4j-graph" target="_blank" class="neo4j-link-btn">打开图谱可视化 →</a>
+            </div>
         </div>
         
         <div id="tab-events" class="tab-content">
@@ -249,17 +251,17 @@ async function loadEvents() {
 
 async function loadPromises() {
     try {
-        const data = await api('/promises?agent_id='+currentAgent);
+        const data = await api('/promises?agent_id='+currentAgent+'&status=open');
         // API 直接返回数组
         const promises = Array.isArray(data) ? data : (data.promises || []);
         const el = document.getElementById('right-promises');
         const el2 = document.getElementById('promises-list');
         const html = !promises.length ? '<div class="empty">暂无承诺</div>' :
             promises.map(p => {
-                const overdue = p.due_at && new Date(p.due_at) < new Date() && p.status !== 'done';
-                return `<div class="promise-item ${p.status === 'done' ? 'done' : ''} ${overdue ? 'overdue' : ''}">
+                const overdue = p.deadline && new Date(p.deadline) < new Date() && p.status !== 'fulfilled';
+                return `<div class="promise-item ${p.status === 'fulfilled' ? 'done' : ''} ${overdue ? 'overdue' : ''}">
                     <div class="content">${esc(p.content || '')}</div>
-                    <div class="deadline">${p.due_at ? '⏰ '+p.due_at : '无截止'} · ${p.status}</div>
+                    <div class="deadline">${p.deadline ? '⏰ '+new Date(p.deadline).toLocaleString() : '无截止'} · ${p.status}</div>
                 </div>`;
             }).join('');
         if (el) el.innerHTML = html;
@@ -651,13 +653,18 @@ function showNodeDetail(node) {
 // Init
 async function init() {
     setupGraphInteraction();
-    await Promise.all([loadAgentState(), loadEvents(), loadPromises(), loadPacks(), loadAllMemories()]);
+    // 只加载关键数据，记忆延迟加载
+    await Promise.all([loadAgentState(), loadEvents(), loadPromises(), loadPacks()]);
     loadGraph();
+    
+    // 延迟加载记忆（不阻塞页面）
+    setTimeout(loadAllMemories, 500);
 
-    // Auto-refresh
+    // Auto-refresh (只刷新关键数据，避免重复)
     setInterval(loadAgentState, 10000);
     setInterval(loadEvents, 15000);
     setInterval(loadPromises, 15000);
+    // 记忆不自动刷新（用户手动切换标签时加载）
 }
 init();
 </script>

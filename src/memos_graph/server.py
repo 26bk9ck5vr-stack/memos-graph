@@ -1,6 +1,6 @@
 """FastAPI server for memos-graph."""
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from pathlib import Path
@@ -56,9 +56,17 @@ def create_app(config_path: Path | None = None, config: Config | None = None) ->
     @app.get("/neo4j-graph", response_class=FileResponse)
     async def neo4j_graph_viewer():
         viewer_path = Path(__file__).parent / "viewer" / "neo4j-graph.html"
-        return FileResponse(viewer_path)
-
-    # Initialize LLM client
+        if not viewer_path.exists():
+            raise HTTPException(status_code=404, detail="Viewer not found")
+        return viewer_path
+    
+    # Agent Dashboard
+    @app.get("/dashboard", response_class=FileResponse)
+    async def agent_dashboard():
+        dashboard_path = Path(__file__).parent / "viewer" / "dashboard.html"
+        if not dashboard_path.exists():
+            raise HTTPException(status_code=404, detail="Dashboard not found")
+        return dashboard_path
     llm_client = LLMClient(
         base_url=config.llm.base_url,
         api_key=config.llm.api_key,

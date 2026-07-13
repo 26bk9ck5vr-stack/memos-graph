@@ -84,7 +84,11 @@ class SiliconflowEmbedder(Embedder):
         zero_vector = [0.0] * self._dimension
         
         headers = {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
-        payload = {"model": self._model, "input": texts}
+        # Ensure input is a list of non-empty strings
+        clean_texts = [str(t).strip() for t in texts if t and str(t).strip()]
+        if not clean_texts:
+            return [zero_vector] * len(texts)
+        payload = {"model": self._model, "input": clean_texts}
         
         try:
             resp = await self._client.post(
