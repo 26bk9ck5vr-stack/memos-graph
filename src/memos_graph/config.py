@@ -16,7 +16,7 @@ server:
   port: 8765
 
 database:
-  url: postgresql+asyncpg://memos:memos@localhost:5432/memos
+  url: postgresql+asyncpg://memos:memos@localhost:5432/memos_graph
   pool_size: 10
   pool_recycle: 3600
 
@@ -99,7 +99,7 @@ def ensure_packs_dir() -> Path:
 
 class DatabaseSettings(BaseSettings):
     """Database settings."""
-    url: str = Field(default="postgresql+asyncpg://memos:memos@localhost:5432/memos")
+    url: str = Field(default="postgresql+asyncpg://memos:memos@localhost:5432/memos_graph")
     pool_size: int = Field(default=10)
     pool_recycle: int = Field(default=3600)
 
