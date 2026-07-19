@@ -49,8 +49,12 @@ class RecallRequest:
     use_graph: bool = True
     graph_decay: float = 0.3
     max_results: int = 10
-    fts_top_k: int = 50
-    vector_top_k: int = 50
+    # 优化召回配置
+    fts_top_k: int = 150         # FTS 召回数量
+    pattern_top_k: int = 100     # Pattern 召回数量
+    time_top_k: int = 80         # 时间召回数量
+    rrf_top_k: int = 330         # RRF 融合后取 Top-K 给 LLM
+    vector_top_k: int = 0        # 默认禁用向量搜索（可选）
 
 
 @dataclass
@@ -61,6 +65,8 @@ class RecallHit:
     score: float
     stage_source: str            # "fts" | "vector" | "graph" | "rrf_merged"
     metadata: dict[str, Any] = field(default_factory=dict)
+    time_score: float = 0.0      # 时间衰减分数
+    final_score: float = 0.0     # 最终融合分数
     
     def __post_init__(self):
         """Validate chunk_id is not None."""
@@ -103,13 +109,15 @@ def rrf_fuse(hits_list: list[list[tuple[int, float]]], k: int = 60) -> list[tupl
 # === Recall Engine ===
 
 class RecallEngine:
-    """5 阶段 recall 引擎。
+    """优化 recall 引擎。
 
-    Stage 1: FTS — PostgreSQL tsvector GIN 全文搜索
-    Stage 2: Vector — pgvector 语义相似度搜索
-    Stage 3: RRF — Reciprocal Rank Fusion 合并 FTS + Vector
-    Stage 4: MMR — Maximal Marginal Relevance 多样性重排
-    Stage 5: Graph — 图谱扩散，扩展相关实体
+    Stage 1: FTS(150) — PostgreSQL tsvector GIN 全文搜索
+    Stage 2: Pattern(100) — ILIKE pattern 模糊匹配
+    Stage 3: Time(80) — 时间最近优先召回
+    Stage 4: RRF — 融合三路召回 → Top 330
+    Stage 5: LLM — LLM 重排 330 条
+    Stage 6: MMR — 多样性重排
+    Stage 7: Time Decay — 时间衰减最终分数
     """
 
     def __init__(
@@ -181,7 +189,7 @@ class RecallEngine:
         req: RecallRequest,
         session: AsyncSession | None = None,
     ) -> RecallResult:
-        """5 阶段检索入口。"""
+        """优化检索入口。"""
         start = time.time()
         stages_run = []
 
@@ -191,55 +199,28 @@ class RecallEngine:
             own_session = True
 
         try:
-            # Stage 0: Query expansion (LLM)
-            expanded_queries = [req.query]
-            if req.use_llm_expand and req.query.strip():
-                try:
-                    llm = self._get_llm()
-                    expanded = await llm.expand_query(req.query)
-                    if expanded:
-                        expanded_queries = expanded
-                        stages_run.append("expand")
-                except Exception as ex:
-                    logger.warning(f"Query expand failed: {ex}")
-
-            # Best-effort FTS across expanded queries, union results
-            all_fts_hits: dict[int, RecallHit] = {}
-            for eq in expanded_queries:
-                req_expanded = RecallRequest(
-                    query=eq,
-                    agent_id=req.agent_id,
-                    scope=req.scope,
-                    fts_top_k=req.fts_top_k,
-                    vector_top_k=0,
-                    max_results=req.max_results,
-                    use_graph=False,
-                    use_llm_expand=False,
-                )
-                fts_hits = await self._fts_search(session, req_expanded)
-                for h in fts_hits:
-                    if h.chunk_id not in all_fts_hits or h.score > all_fts_hits[h.chunk_id].score:
-                        all_fts_hits[h.chunk_id] = h
-            fts_hits = list(all_fts_hits.values())
+            # Stage 1: FTS (150 条)
+            fts_hits = await self._fts_search(session, req)
             stages_run.append("fts")
 
-            # Stage 2: Vector (only if enabled)
-            vec_hits: list[RecallHit] = []
-            if req.use_vector:
-                try:
-                    vec_hits = await self._vector_search(session, req)
-                    stages_run.append("vector")
-                except Exception as ex:
-                    logger.warning(f"Vector search failed: {ex}")
+            # Stage 2: Pattern (100 条)
+            pattern_hits = await self._pattern_search(session, req)
+            stages_run.append("pattern")
 
-            # Stage 3: RRF
+            # Stage 3: Time-based (80 条)
+            time_hits = await self._time_search(session, req)
+            stages_run.append("time")
+
+            # Stage 4: RRF 融合三路召回
             fts_ranked = [(h.chunk_id, h.score) for h in fts_hits]
-            vec_ranked = [(h.chunk_id, h.score) for h in vec_hits]
-            rrf_ranked = rrf_fuse([fts_ranked, vec_ranked])
+            pattern_ranked = [(h.chunk_id, h.score) for h in pattern_hits]
+            time_ranked = [(h.chunk_id, h.score) for h in time_hits]
+            rrf_ranked = rrf_fuse([fts_ranked, pattern_ranked, time_ranked])
             stages_run.append("rrf")
 
-            # Load full chunks for RRF results
-            chunk_ids = [cid for cid, _ in rrf_ranked[:req.max_results * 2]]
+            # 取 Top 330 给 LLM 重排
+            top_k_for_llm = min(req.rrf_top_k, len(rrf_ranked))
+            chunk_ids = [cid for cid, _ in rrf_ranked[:top_k_for_llm]]
             chunks = await self._load_chunks(session, chunk_ids)
             chunk_map = {c.id: c for c in chunks}
 
@@ -255,32 +236,177 @@ class RecallEngine:
                 if cid is not None and cid in chunk_map
             ]
 
-            # Stage 4: MMR
-            mmr_hits = self._mmr_diversify(rrf_hits, req.max_results, lambda h: h.content)
+            # Stage 5: LLM 重排 (330 条)
+            if req.use_llm_expand and rrf_hits:
+                try:
+                    rrf_hits = await self._llm_rerank(rrf_hits, req.query)
+                    stages_run.append("llm_rerank")
+                except Exception as ex:
+                    logger.warning(f"LLM rerank failed: {ex}")
+
+            # Stage 6: MMR 多样性重排
+            mmr_hits = self._mmr_diversify(rrf_hits, req.max_results * 2, lambda h: h.content)
             stages_run.append("mmr")
 
-            # Stage 5: Graph diffusion (optional)
-            if req.use_graph and mmr_hits:
-                graph_hits = await self._graph_diffusion(session, mmr_hits[:3], req.graph_decay)
-                if graph_hits:
-                    # Merge graph hits
-                    existing_ids = {h.chunk_id for h in mmr_hits}
-                    for gh in graph_hits:
-                        if gh.chunk_id not in existing_ids:
-                            mmr_hits.append(gh)
-                            existing_ids.add(gh.chunk_id)
-                    stages_run.append("graph")
+            # Stage 7: 时间衰减
+            final_hits = self._apply_time_decay(mmr_hits)
 
             took_ms = int((time.time() - start) * 1000)
             return RecallResult(
                 query=req.query,
-                hits=mmr_hits[:req.max_results],
+                hits=final_hits[:req.max_results],
                 took_ms=took_ms,
                 stages_run=stages_run,
             )
         finally:
             if own_session:
                 await session.close()
+
+    async def _llm_rerank(self, hits: list[RecallHit], query: str) -> list[RecallHit]:
+        """LLM 重排 330 条召回结果。"""
+        if not hits or len(hits) > 330:
+            return hits
+        
+        try:
+            llm = self._get_llm()
+            # 构建 LLM 重排 prompt
+            contents = [h.content[:200] for h in hits]  # 每条截取前 200 字
+            reranked_indices = await llm.rerank_documents(query, contents, top_k=len(hits))
+            
+            # 根据 LLM 返回的索引重排
+            if reranked_indices and len(reranked_indices) == len(hits):
+                reranked_hits = [hits[i] for i in reranked_indices if 0 <= i < len(hits)]
+                # 更新分数为排名
+                for idx, hit in enumerate(reranked_hits):
+                    hit.final_score = 1.0 - (idx / len(reranked_hits))
+                return reranked_hits
+        except Exception as e:
+            logger.warning(f"LLM rerank error: {e}")
+        
+        # Fallback: 保持原顺序
+        return hits
+
+    async def _pattern_search(self, session: AsyncSession, req: RecallRequest) -> list[RecallHit]:
+        """Stage 2: Pattern 模糊匹配 (ILIKE)。"""
+        if req.scope == "all":
+            scope_filter = ""
+        else:
+            scope_filter = "AND c.scope = :scope"
+        
+        sql = text(f"""
+            SELECT c.id, c.content, c.agent_id, c.scope, c.created_at,
+                   1.0 as pattern_score
+            FROM chunks c
+            WHERE c.agent_id = :agent_id
+              AND c.content ILIKE :pattern
+              {scope_filter}
+            ORDER BY c.created_at DESC
+            LIMIT :top_k
+        """)
+        
+        pattern = f"%{req.query}%"
+        params = {
+            "agent_id": req.agent_id,
+            "pattern": pattern,
+            "top_k": req.pattern_top_k,
+        }
+        if req.scope != "all":
+            params["scope"] = req.scope
+        
+        try:
+            result = await session.execute(sql, params)
+            rows = result.fetchall()
+            return [
+                RecallHit(
+                    chunk_id=row.id,
+                    content=row.content,
+                    score=float(row.pattern_score),
+                    stage_source="pattern",
+                    metadata={"agent_id": row.agent_id, "scope": row.scope},
+                    time_score=0.0,
+                )
+                for row in rows
+            ]
+        except Exception as e:
+            logger.warning(f"Pattern search failed: {e}")
+            return []
+
+    async def _time_search(self, session: AsyncSession, req: RecallRequest) -> list[RecallHit]:
+        """Stage 3: 时间最近优先召回 (80 条)。"""
+        if req.scope == "all":
+            scope_filter = ""
+        else:
+            scope_filter = "AND c.scope = :scope"
+        
+        sql = text(f"""
+            SELECT c.id, c.content, c.agent_id, c.scope, c.created_at,
+                   1.0 as time_score
+            FROM chunks c
+            WHERE c.agent_id = :agent_id
+              {scope_filter}
+            ORDER BY c.created_at DESC
+            LIMIT :top_k
+        """)
+        
+        params = {
+            "agent_id": req.agent_id,
+            "top_k": req.time_top_k,
+        }
+        if req.scope != "all":
+            params["scope"] = req.scope
+        
+        try:
+            result = await session.execute(sql, params)
+            rows = result.fetchall()
+            return [
+                RecallHit(
+                    chunk_id=row.id,
+                    content=row.content,
+                    score=float(row.time_score),
+                    stage_source="time",
+                    metadata={"agent_id": row.agent_id, "scope": row.scope, "created_at": row.created_at},
+                    time_score=1.0,
+                )
+                for row in rows
+            ]
+        except Exception as e:
+            logger.warning(f"Time search failed: {e}")
+            return []
+
+    def _apply_time_decay(self, hits: list[RecallHit]) -> list[RecallHit]:
+        """Stage 7: 应用时间衰减到最终分数。"""
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        
+        for hit in hits:
+            # 从 metadata 中获取 created_at
+            created_at = hit.metadata.get("created_at")
+            if created_at:
+                if isinstance(created_at, datetime):
+                    created_time = created_at
+                else:
+                    try:
+                        created_time = datetime.fromisoformat(str(created_at))
+                        if created_time.tzinfo is None:
+                            created_time = created_time.replace(tzinfo=timezone.utc)
+                    except Exception:
+                        created_time = now
+            else:
+                created_time = now
+            
+            # 计算时间差（小时）
+            hours_diff = (now - created_time).total_seconds() / 3600
+            
+            # 时间衰减：exp(-0.01 * hours) ≈ 每 70 小时衰减一半
+            decay_factor = 2.718281828 ** (-0.01 * min(hours_diff, 720))  # 最多衰减 30 天
+            
+            # 最终分数 = RRF 分数 * 时间衰减
+            hit.final_score = hit.score * decay_factor
+            hit.time_score = decay_factor
+        
+        # 按最终分数重排
+        hits.sort(key=lambda h: h.final_score, reverse=True)
+        return hits
 
     async def fts_search(self, query: str, agent_id: str, top_k: int = 50) -> list[RecallHit]:
         """FTS 阶段入口（独立调用）。"""

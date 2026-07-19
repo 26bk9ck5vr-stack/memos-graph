@@ -113,6 +113,56 @@ class LLMClient:
         result = await self.chat(messages, temperature=0.5)
         return [q.strip() for q in result.split("\n") if q.strip()]
 
+    async def rerank_documents(self, query: str, contents: list[str], top_k: int) -> list[int]:
+        """LLM 重排文档，返回排序后的索引列表。
+        
+        Args:
+            query: 查询文本
+            contents: 文档内容列表（每条已截断）
+            top_k: 返回前 K 个结果
+            
+        Returns:
+            排序后的索引列表
+        """
+        # 构建重排 prompt
+        docs_text = "\n\n".join([f"[{i}] {content}" for i, content in enumerate(contents)])
+        prompt = f"""你是一个智能排序助手。请根据查询的相关性和文档质量，对以下文档进行排序。
+
+查询：{query}
+
+文档列表：
+{docs_text}
+
+请返回排序后的文档索引列表（从最相关到最不相关），只返回 JSON 数组格式，例如：[2, 0, 1, 3]
+
+排序标准：
+1. 与查询的相关性
+2. 信息完整性
+3. 内容质量
+
+返回格式：[索引 1, 索引 2, 索引 3, ...]"""
+
+        messages = [
+            {"role": "system", "content": "你是一个智能文档排序助手。返回 JSON 数组格式的排序结果。"},
+            {"role": "user", "content": prompt},
+        ]
+        
+        try:
+            result = await self.chat(messages, temperature=0.1)
+            # 解析 JSON 数组
+            import json
+            import re
+            match = re.search(r"\[.*\]", result, re.DOTALL)
+            if match:
+                indices = json.loads(match.group())
+                if isinstance(indices, list) and len(indices) == len(contents):
+                    return indices
+        except Exception as e:
+            logger.warning(f"LLM rerank failed: {e}")
+        
+        # Fallback: 返回原始顺序
+        return list(range(len(contents)))
+
     def _parse_json(self, text: str) -> dict[str, Any]:
         """Parse JSON from LLM response."""
         import json
