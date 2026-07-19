@@ -9,6 +9,7 @@ import time
 import httpx
 from memos_graph.llm.client import LLMClient
 from memos_graph.embedding import EmbeddingService
+from memos_graph.reranker.cross_encoder import CrossEncoderReranker
 import json
 import re
 import logging
@@ -151,6 +152,8 @@ class RecallEngine:
         # Lazy-initialized services
         self._embedding: Any | None = None
         self._llm: LLMClient | None = None
+        # Cross-Encoder reranker (lazy init)
+        self._reranker: CrossEncoderReranker | None = None
 
     def _get_embedding(self):
         """Lazy init embedding service."""
@@ -176,6 +179,12 @@ class RecallEngine:
                 timeout=self._llm_timeout,
             )
         return self._llm
+    
+    def _get_reranker(self):
+        """Lazy init Cross-Encoder reranker."""
+        if self._reranker is None:
+            self._reranker = CrossEncoderReranker('BAAI/bge-reranker-large')
+        return self._reranker
 
     async def close(self):
         """Close lazy-initialized services."""
@@ -239,7 +248,7 @@ class RecallEngine:
             # Stage 5: LLM 重排 (330 条)
             if req.use_llm_expand and rrf_hits:
                 try:
-                    rrf_hits = await self._llm_rerank(rrf_hits, req.query)
+                    rrf_hits = await self._rerank(rrf_hits, req.query)
                     stages_run.append("llm_rerank")
                 except Exception as ex:
                     logger.warning(f"LLM rerank failed: {ex}")
@@ -262,26 +271,28 @@ class RecallEngine:
             if own_session:
                 await session.close()
 
-    async def _llm_rerank(self, hits: list[RecallHit], query: str) -> list[RecallHit]:
-        """LLM 重排 330 条召回结果。"""
-        if not hits or len(hits) > 330:
+    async def _rerank(self, hits: list[RecallHit], query: str) -> list[RecallHit]:
+        """Cross-Encoder 重排 (替代 LLM)。"""
+        if not hits:
             return hits
         
         try:
-            llm = self._get_llm()
-            # 构建 LLM 重排 prompt
-            contents = [h.content[:200] for h in hits]  # 每条截取前 200 字
-            reranked_indices = await llm.rerank_documents(query, contents, top_k=len(hits))
+            reranker = self._get_reranker()
+            # 提取内容 (每条截取前 512 字符)
+            contents = [h.content[:512] for h in hits]
             
-            # 根据 LLM 返回的索引重排
+            # Cross-Encoder 重排
+            reranked_indices = reranker.rerank(query, contents, top_k=len(hits))
+            
+            # 根据索引重排
             if reranked_indices and len(reranked_indices) == len(hits):
-                reranked_hits = [hits[i] for i in reranked_indices if 0 <= i < len(hits)]
-                # 更新分数为排名
+                reranked_hits = [hits[i] for i in reranked_indices]
+                # 更新分数为排名 (归一化到 0-1)
                 for idx, hit in enumerate(reranked_hits):
                     hit.final_score = 1.0 - (idx / len(reranked_hits))
                 return reranked_hits
         except Exception as e:
-            logger.warning(f"LLM rerank error: {e}")
+            logger.warning(f"Cross-Encoder rerank error: {e}")
         
         # Fallback: 保持原顺序
         return hits
