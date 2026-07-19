@@ -437,24 +437,11 @@
             return types[type] || 'event';
         }
 
-        // 页面加载时初始化
+        // 页面加载时初始化（只加载一次，不重复）
         window.addEventListener('DOMContentLoaded', () => {
             loadAgentState();
             loadPromises();
             loadEvents();
-            
-            // 定时刷新（避免重复）
-            setInterval(() => {
-                loadAgentState();
-            }, 30000); // 30 秒刷新状态
-            
-            setInterval(() => {
-                loadPromises();
-            }, 60000); // 60 秒刷新承诺
-            
-            setInterval(() => {
-                loadEvents();
-            }, 60000); // 60 秒刷新事件
         });
     </script>
 </body>

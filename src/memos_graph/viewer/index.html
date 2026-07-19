@@ -1,7 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
     <meta charset="UTF-8">
+    <meta name="version" content="2026071324-NO-CACHE">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>memos-graph Viewer</title>
     <style>
@@ -100,6 +105,16 @@
         .pack-upgrade:hover { background: #e8e8ed; }
         .pack-error { color: #ff3b30; font-size: 0.75rem; margin-top: 0.3rem; }
     </style>
+
+    <script>
+    // Early definition of switchTab to avoid onclick errors
+    window.switchTab = function(name) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelector(`.tab[onclick="switchTab('${name}')"]`).classList.add('active');
+        document.getElementById('tab-' + name).classList.add('active');
+    };
+    </script>
 </head>
 <body>
 
@@ -157,15 +172,15 @@
         </div>
         
         <div id="tab-events" class="tab-content">
-            <div id="events-list"><div class="loading">加载中</div></div>
+            <div id="events-list"></div>
         </div>
         
         <div id="tab-promises" class="tab-content">
-            <div id="promises-list"><div class="loading">加载中</div></div>
+            <div id="promises-list"></div>
         </div>
         
         <div id="tab-memories" class="tab-content">
-            <div id="all-memories"><div class="loading">加载中</div></div>
+            <div id="all-memories"></div>
         </div>
     </div>
     
@@ -185,11 +200,21 @@
     </div>
 </div>
 
+<!-- Version: 2026071322-fix2 -->
 <script>
 const API = '/api/v1';
 // 从 URL 参数读取 agent_id，默认使用 'hermes'
 const urlParams = new URLSearchParams(window.location.search);
 let currentAgent = urlParams.get('agent_id') || 'hermes';
+
+// 如果 agent_id 是 '-' 或空，使用 'hermes'
+if (!currentAgent || currentAgent === '-') {
+    currentAgent = 'hermes';
+    // 更新 URL 但不刷新页面
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.set('agent_id', 'hermes');
+    window.history.replaceState({}, '', newUrl);
+}
 
 async function api(path, opts = {}) {
     const r = await fetch(API + path, { headers: { 'Content-Type': 'application/json' }, ...opts });
@@ -233,30 +258,81 @@ async function loadAgentState() {
     } catch(e) { console.error('state error', e); }
 }
 
+// Global flags to prevent duplicate rendering
+let eventsRendered = false;
+let promisesRendered = false;
+let memoriesRendered = false;
+
 async function loadEvents() {
+    // Prevent duplicate rendering
+    if (eventsRendered) {
+        console.log('[Viewer] loadEvents: already rendered, skipping');
+        return;
+    }
+    eventsRendered = true;
+    
+    console.log('[Viewer] loadEvents called, currentAgent=', currentAgent);
     try {
         const data = await api('/events?agent_id='+currentAgent+'&limit=20');
+        console.log('[Viewer] events API response:', data);
         const el = document.getElementById('events-list');
+        
+        // Guard: element might not exist or be replaced by browser extension
+        if (!el) {
+            console.error('[Viewer] events-list element not found!');
+            return;
+        }
+        
+        // Force clear all children to prevent duplicates
+        el.innerHTML = '<div class="loading">加载中...</div>';
+        
         // API 直接返回数组
         const events = Array.isArray(data) ? data : (data.events || []);
-        if (!events.length) { el.innerHTML = '<div class="empty">暂无事件</div>'; return; }
-        el.innerHTML = events.map(e => `
+        console.log('[Viewer] events count:', events ? events.length : 0);
+        if (!events || events.length === 0) { 
+            console.log('[Viewer] No events, setting empty state');
+            el.innerHTML = '<div class="empty">暂无事件</div>'; 
+            return; 
+        }
+        
+        const html = events.map(e => `
             <div class="event-item">
-                <div class="type">${e.event_type || 'event'}</div>
-                <div class="content">${esc(e.summary || e.payload?.raw?.summary || '')}</div>
+                <div class="type">${esc(e.event_type || 'event')}</div>
+                <div class="content">${esc((e.summary || e.payload?.raw?.summary || '无摘要').substring(0, 200))}</div>
                 <div class="time">${timeAgo(e.created_at)}</div>
             </div>`).join('');
-    } catch(e) { console.error('events error', e); document.getElementById('events-list').innerHTML = '<div class="empty">加载失败</div>'; }
+        
+        console.log('[Viewer] Setting innerHTML with', events.length, 'items, HTML length:', html.length);
+        el.innerHTML = html;
+        console.log('[Viewer] innerHTML set complete. Child count:', el.children.length);
+    } catch(e) { 
+        console.error('events error', e); 
+        const el = document.getElementById('events-list');
+        if (el) el.innerHTML = '<div class="empty">加载失败：' + esc(e.message) + '</div>'; 
+    }
 }
 
 async function loadPromises() {
+    // Prevent duplicate rendering
+    if (promisesRendered) {
+        console.log('[Viewer] loadPromises: already rendered, skipping');
+        return;
+    }
+    promisesRendered = true;
+    
+    console.log('[Viewer] loadPromises called, currentAgent=', currentAgent);
     try {
         const data = await api('/promises?agent_id='+currentAgent+'&status=open');
+        console.log('[Viewer] promises API response:', data);
         // API 直接返回数组
         const promises = Array.isArray(data) ? data : (data.promises || []);
+        console.log('[Viewer] promises count:', promises ? promises.length : 0);
         const el = document.getElementById('right-promises');
         const el2 = document.getElementById('promises-list');
-        const html = !promises.length ? '<div class="empty">暂无承诺</div>' :
+        // 清空容器，防止重复
+        if (el) el.innerHTML = '<div class="loading">加载中...</div>';
+        if (el2) el2.innerHTML = '<div class="loading">加载中...</div>';
+        const html = !promises || promises.length === 0 ? '<div class="empty">暂无承诺</div>' :
             promises.map(p => {
                 const overdue = p.deadline && new Date(p.deadline) < new Date() && p.status !== 'fulfilled';
                 return `<div class="promise-item ${p.status === 'fulfilled' ? 'done' : ''} ${overdue ? 'overdue' : ''}">
@@ -266,7 +342,14 @@ async function loadPromises() {
             }).join('');
         if (el) el.innerHTML = html;
         if (el2) el2.innerHTML = html;
-    } catch(e) { console.error('promises error', e); document.getElementById('promises-list').innerHTML = '<div class="empty">加载失败</div>'; }
+    } catch(e) { 
+        console.error('promises error', e); 
+        const emptyHtml = '<div class="empty">加载失败：' + esc(e.message) + '</div>';
+        document.getElementById('promises-list').innerHTML = emptyHtml;
+        if (document.getElementById('right-promises')) {
+            document.getElementById('right-promises').innerHTML = emptyHtml;
+        }
+    }
 }
 
 async function loadPacks() {
@@ -332,18 +415,36 @@ async function upgradePack(id) {
 }
 
 async function loadAllMemories() {
+    // Prevent duplicate rendering
+    if (memoriesRendered) {
+        console.log('[Viewer] loadAllMemories: already rendered, skipping');
+        return;
+    }
+    memoriesRendered = true;
+    
+    console.log('[Viewer] loadAllMemories called, currentAgent=', currentAgent);
     try {
         const data = await api('/memories?agent_id='+currentAgent+'&limit=50');
+        console.log('[Viewer] memories API response:', data);
         const el = document.getElementById('all-memories');
+        // 清空容器，防止重复
+        if (el) el.innerHTML = '<div class="loading">加载中...</div>';
         // API 直接返回数组
         const memories = Array.isArray(data) ? data : (data.memories || []);
-        if (!memories.length) { el.innerHTML = '<div class="empty">暂无记忆</div>'; return; }
+        console.log('[Viewer] memories count:', memories ? memories.length : 0);
+        if (!memories || memories.length === 0) { 
+            el.innerHTML = '<div class="empty">暂无记忆</div>'; 
+            return; 
+        }
         el.innerHTML = memories.map(m => `
             <div class="memory-item" onclick="showMemoryDetail(${m.id})">
-                <div class="content">${esc(m.content)}</div>
-                <div class="meta">${m.scope} · ${timeAgo(m.created_at)}</div>
+                <div class="content">${esc(m.content || '').substring(0, 200)}</div>
+                <div class="meta">${m.scope || 'private'} · ${timeAgo(m.created_at)}</div>
             </div>`).join('');
-    } catch(e) { console.error('memories error', e); document.getElementById('all-memories').innerHTML = '<div class="empty">加载失败</div>'; }
+    } catch(e) { 
+        console.error('memories error', e); 
+        document.getElementById('all-memories').innerHTML = '<div class="empty">加载失败：' + esc(e.message) + '</div>'; 
+    }
 }
 
 function showMemoryDetail(id) {
@@ -380,23 +481,19 @@ let graphTooltip = null;
 // ── Load graph data then animate ────────────────────────────
 async function loadGraph() {
     try {
-        // Fetch entities
-        const ents = await api('/entities?agent_id=' + currentAgent);
-        const entityList = Array.isArray(ents) ? ents : (ents.entities || []);
-
-        // Fetch edges — try dedicated endpoint first, fall back to empty
-        let edgeList = [];
-        try {
-            const edgesResp = await api('/entity-edges?agent_id=' + currentAgent);
-            edgeList = Array.isArray(edgesResp) ? edgesResp : (edgesResp.edges || []);
-        } catch (_) {
-            // No dedicated edges endpoint — skip edges
-        }
-
-        buildGraph(entityList, edgeList);
+        // Use Neo4j graph API which returns Memory nodes
+        const data = await api('/neo4j/graph?agent_id=' + currentAgent + '&limit=100');
+        const nodes = data.nodes || [];
+        const links = data.links || [];
+        
+        // Filter to only Memory nodes (since we don't have Entity nodes yet)
+        const memoryNodes = nodes.filter(n => n.labels && n.labels.includes('Memory'));
+        
+        buildGraph(memoryNodes, links);
         runLayout();
     } catch(e) {
         console.error('loadGraph failed:', e);
+        document.getElementById('graph-empty-hint').innerHTML = '<div>图谱加载失败</div><div style="font-size: 0.75rem; margin-top: 0.5rem;">' + esc(e.message) + '</div>';
     }
 }
 
@@ -413,7 +510,7 @@ function buildGraph(entities, edges) {
             emptyHint = document.createElement('div');
             emptyHint.id = 'graph-empty-hint';
             emptyHint.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #86868b; font-size: 0.875rem; pointer-events: none;';
-            emptyHint.innerHTML = '<div>暂无图谱数据</div><div style="font-size: 0.75rem; margin-top: 0.5rem;">实体将在此处显示为节点</div>';
+            emptyHint.innerHTML = '<div>暂无图谱数据</div><div style="font-size: 0.75rem; margin-top: 0.5rem;">记忆将在此处显示为节点</div>';
             graphContainer.style.position = 'relative';
             graphContainer.appendChild(emptyHint);
         } else {
@@ -425,28 +522,35 @@ function buildGraph(entities, edges) {
     } else {
         if (emptyHint) emptyHint.style.display = 'none';
     }
-
-    // Count connections per entity
+    
+    // Count connections per node
     const connCount = {};
     edges.forEach(e => {
         connCount[e.source] = (connCount[e.source] || 0) + 1;
         connCount[e.target] = (connCount[e.target] || 0) + 1;
     });
-
+    
     // Node radius: min 14px, +2px per connection, cap at 36
     const getR = id => Math.min(36, 14 + 2 * (connCount[id] || 0));
-
-    graphNodes = entities.map((en, i) => ({
-        id:       en.id,
-        label:    en.name || en.content?.slice(0, 20) || String(i),
-        entity_type: en.entity_type || en.type || 'entity',
-        x:  Math.random() * W,
-        y:  Math.random() * H,
-        vx: 0,
-        vy: 0,
-        r:  getR(en.id),
-    }));
-
+    
+    // Build nodes from Memory entities
+    graphNodes = entities.map((en, i) => {
+        // Extract label from content (first 30 chars)
+        const content = en.content || en.properties?.content || '';
+        const label = content.substring(0, 30).replace(/\n/g, ' ') + (content.length > 30 ? '...' : '');
+        
+        return {
+            id:       en.id || String(i),
+            label:    label || '记忆 #' + en.id,
+            entity_type: en.labels?.[0] || 'Memory',
+            x:  Math.random() * W,
+            y:  Math.random() * H,
+            vx: 0,
+            vy: 0,
+            r:  getR(en.id || i),
+        };
+    });
+    
     graphEdges = edges
         .filter(e => graphNodes.find(n => n.id === e.source) && graphNodes.find(n => n.id === e.target))
         .map(e => ({ source: e.source, target: e.target }));
@@ -518,6 +622,13 @@ function runLayout() {
 // ── Render ───────────────────────────────────────────────────
 function renderGraph() {
     const canvas = document.getElementById('graph-canvas');
+    
+    // Guard: canvas might not exist
+    if (!canvas) {
+        console.warn('[Viewer] renderGraph: graph-canvas not found, skipping render');
+        return;
+    }
+    
     const ctx = canvas.getContext('2d');
     canvas.width  = 560;
     canvas.height = 360;
@@ -590,6 +701,12 @@ function renderGraph() {
 function setupGraphInteraction() {
     const canvas = document.getElementById('graph-canvas');
     
+    // Guard: canvas might not exist if graph tab is not rendered yet
+    if (!canvas) {
+        console.warn('[Viewer] setupGraphInteraction: graph-canvas not found, skipping interaction setup');
+        return;
+    }
+    
     // Click handler for nodes
     canvas.addEventListener('click', e => {
         const rect = canvas.getBoundingClientRect();
@@ -652,21 +769,33 @@ function showNodeDetail(node) {
 
 // Init
 async function init() {
+    console.log('[Viewer] init() started');
     setupGraphInteraction();
+    console.log('[Viewer] setupGraphInteraction done');
+    
     // 只加载关键数据，记忆延迟加载
+    console.log('[Viewer] Loading critical data...');
     await Promise.all([loadAgentState(), loadEvents(), loadPromises(), loadPacks()]);
+    console.log('[Viewer] Critical data loaded');
+    
     loadGraph();
+    console.log('[Viewer] loadGraph called');
     
     // 延迟加载记忆（不阻塞页面）
     setTimeout(loadAllMemories, 500);
-
-    // Auto-refresh (只刷新关键数据，避免重复)
-    setInterval(loadAgentState, 10000);
-    setInterval(loadEvents, 15000);
-    setInterval(loadPromises, 15000);
-    // 记忆不自动刷新（用户手动切换标签时加载）
+    console.log('[Viewer] loadAllMemories scheduled');
+    
+    // 不再自动刷新 - 避免重复
+    console.log('[Viewer] Initialization complete.');
 }
-init();
+
+// Wait for DOM to be ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+
 </script>
 </body>
 </html>

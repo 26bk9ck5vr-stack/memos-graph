@@ -53,7 +53,7 @@ class RecallRequest:
     fts_top_k: int = 150         # FTS 召回数量
     pattern_top_k: int = 100     # Pattern 召回数量
     time_top_k: int = 80         # 时间召回数量
-    rrf_top_k: int = 330         # RRF 融合后取 Top-K 给 LLM
+    rrf_top_k: int = 100         # RRF 融合后取 Top-K 给 LLM
     vector_top_k: int = 0        # 默认禁用向量搜索（可选）
 
 
