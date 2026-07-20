@@ -46,24 +46,26 @@ class QueryClassifier:
         query = query.strip()
         length = len(query)
         
-        # 规则 1: 长度判断
+        # 规则 1: 极短查询 (<5 字符)
         if length < 5:
             return 'simple'
-        elif length > 30:
+        
+        # 规则 2: 超长查询 (>30 字符)
+        if length > 30:
             return 'complex'
         
-        # 规则 2: 空格判断 (英文查询)
+        # 规则 3: 复杂指示词优先判断
+        has_complex_indicator = any(ind in query for ind in self.COMPLEX_INDICATORS)
+        if has_complex_indicator:
+            return 'complex'
+        
+        # 规则 4: 空格判断 (英文查询)
         has_space = ' ' in query
         if length < 10 and not has_space:
             return 'simple'
         
-        # 规则 3: 关键词判断
+        # 规则 5: 简单关键词判断
         has_simple_keyword = any(kw in query for kw in self.SIMPLE_KEYWORDS)
-        has_complex_indicator = any(ind in query for ind in self.COMPLEX_INDICATORS)
-        
-        if has_complex_indicator:
-            return 'complex'
-        
         if has_simple_keyword and length < 15:
             return 'simple'
         
