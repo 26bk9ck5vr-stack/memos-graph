@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 from typing import List, Optional
 import logging
+from sqlalchemy import func
 
 from memos_graph.db.session import get_session
 from memos_graph.db.models import Chunk, Event, ChunkVector, Entity, ChunkEntity
@@ -91,8 +92,10 @@ async def realtime_sync(
             # 解析时间戳
             try:
                 timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                # 转换为无时区 (数据库使用 TIMESTAMP WITHOUT TIME ZONE)
+                timestamp = timestamp.replace(tzinfo=None)
             except:
-                timestamp = datetime.now(timezone.utc)
+                timestamp = datetime.utcnow()
             
             # 创建 Chunk
             chunk = Chunk(
@@ -104,7 +107,8 @@ async def realtime_sync(
                 metadata={
                     "source": "realtime_sync",
                     "session_id": session_id
-                }
+                },
+                tsvector=func.to_tsvector('simple', content)  # 生成 FTS 向量
             )
             session.add(chunk)
             await session.flush()  # 获取 chunk.id
@@ -168,25 +172,26 @@ async def sync_stats(session: AsyncSession = Depends(get_session)):
     """
     获取同步统计信息
     """
-    from sqlalchemy import func
+    from sqlalchemy import func, select
     
     # 总 chunk 数
-    total_chunks = await session.execute(func.count(Chunk.id))
+    result = await session.execute(select(func.count(Chunk.id)))
+    total_chunks = result.scalar()
     
     # 今天的 chunk 数
-    today = datetime.now(timezone.utc).date()
-    today_chunks = await session.execute(
-        func.count(Chunk.id).where(func.date(Chunk.created_at) == today)
+    today = datetime.now().date()
+    result = await session.execute(
+        select(func.count(Chunk.id)).where(func.date(Chunk.created_at) == today)
     )
+    today_chunks = result.scalar()
     
     # 最后更新时间
-    last_update = await session.execute(
-        func.max(Chunk.created_at)
-    )
+    result = await session.execute(select(func.max(Chunk.created_at)))
+    last_update = result.scalar()
     
     return {
-        "total_chunks": total_chunks.scalar(),
-        "today_chunks": today_chunks.scalar(),
-        "last_update": last_update.scalar().isoformat() if last_update.scalar() else None,
+        "total_chunks": total_chunks or 0,
+        "today_chunks": today_chunks or 0,
+        "last_update": last_update.isoformat() if last_update else None,
         "sync_mode": "realtime"
     }
