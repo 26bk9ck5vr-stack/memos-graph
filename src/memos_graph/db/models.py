@@ -39,7 +39,7 @@ class ChunkVector(Base):
     __tablename__ = "chunk_vectors"
 
     chunk_id = Column(BigInteger, ForeignKey("chunks.id", ondelete="CASCADE"), primary_key=True)
-    embedding = Column(Vector(768), nullable=False)
+    embedding = Column(Vector(1024), nullable=False)  # BAAI/bge-m3 uses 1024 dimensions
     model = Column(String, nullable=False)
 
     chunk = relationship("Chunk")
