@@ -88,42 +88,59 @@ class Neo4jClient:
             }
         """
         async with self.driver.session() as session:
+            # Query both Entity and Memory nodes
             result = await session.run("""
-                MATCH (e:Entity {agent_id: $agent_id})-[r]-(f:Entity)
-                RETURN e, r, f
+                MATCH (n)
+                WHERE (n:Entity AND n.agent_id = $agent_id) OR (n:Memory AND n.agent_id = $agent_id)
+                RETURN n
+                ORDER BY n.created_at DESC
                 LIMIT $limit
             """, agent_id=agent_id, limit=limit)
             
-            nodes = {}
-            links = []
-            
+            nodes = []
             async for record in result:
-                e_node = record["e"]
-                f_node = record["f"]
-                rel = record["r"]
+                n = record["n"]
+                labels = list(n.labels)
+                node_data = {
+                    "id": n.get("name") or str(n.get("id", "")),
+                    "labels": labels,
+                    "agent_id": n.get("agent_id"),
+                }
                 
-                # Add nodes
-                for node in [e_node, f_node]:
-                    node_id = node.id
-                    if node_id not in nodes:
-                        nodes[node_id] = {
-                            "id": node_id,
-                            "name": node.get("name"),
-                            "type": node.get("type"),
-                            "agent_id": node.get("agent_id"),
-                            "metadata": node.get("metadata", {}),
-                        }
+                # Add type-specific properties
+                if "Entity" in labels:
+                    node_data["name"] = n.get("name")
+                    node_data["type"] = n.get("type")
+                    node_data["metadata"] = n.get("metadata", {})
+                elif "Memory" in labels:
+                    node_data["content"] = n.get("content", "")[:200]
+                    node_data["scope"] = n.get("scope")
+                    node_data["created_at"] = str(n.get("created_at"))
                 
-                # Add relationship
+                nodes.append(node_data)
+            
+            # Query relationships (Entity-Entity only for now)
+            rel_result = await session.run("""
+                MATCH (a:Entity {agent_id: $agent_id})-[r]-(b:Entity {agent_id: $agent_id})
+                RETURN a, r, b
+                LIMIT $limit
+            """, agent_id=agent_id, limit=limit)
+            
+            links = []
+            async for record in rel_result:
+                a = record["a"]
+                b = record["b"]
+                r = record["r"]
+                
                 links.append({
-                    "source": e_node.id,
-                    "target": f_node.id,
-                    "type": rel.get("type"),
-                    "properties": {k: v for k, v in rel.items() if k not in ["type", "source", "target"]},
+                    "source": a.get("name") or str(a.get("id", "")),
+                    "target": b.get("name") or str(b.get("id", "")),
+                    "type": r.get("type"),
+                    "properties": {k: v for k, v in r.items() if k not in ["type"]},
                 })
             
             return {
-                "nodes": list(nodes.values()),
+                "nodes": nodes,
                 "links": links,
             }
     

@@ -87,6 +87,26 @@ class EventExtractor:
         event_ids = []
         for e in extracted:
             summary = e.get("summary") or e.get("content") or str(e)[:500]
+            
+            # Check for duplicate: same summary + same agent_id within 5 seconds
+            from sqlalchemy import select, and_
+            from datetime import timedelta
+            from memos_graph.db.models import Event
+            
+            cutoff_time = datetime.utcnow() - timedelta(seconds=5)
+            existing = await session.execute(
+                select(Event).where(
+                    and_(
+                        Event.agent_id == agent_id,
+                        Event.summary == summary,
+                        Event.created_at >= cutoff_time
+                    )
+                )
+            )
+            if existing.scalar_one_or_none():
+                logger.info(f"Skipping duplicate event: {summary[:50]}...")
+                continue
+            
             event = Event(
                 agent_id=agent_id,
                 event_type=e.get("event_type", "other"),
@@ -307,7 +327,26 @@ class IngestPipeline:
         results: dict[str, Any],
     ) -> None:
         """Internal ingest logic using provided session."""
-        # 1. Create Chunk
+        # 1. Create Chunk with duplicate check
+        # Check if same content already exists within 5 seconds
+        from sqlalchemy import select, and_
+        from datetime import timedelta
+        from memos_graph.db.models import Chunk
+        
+        cutoff_time = datetime.utcnow() - timedelta(seconds=5)
+        existing_chunk = await session.execute(
+            select(Chunk).where(
+                and_(
+                    Chunk.agent_id == agent_id,
+                    Chunk.content == text,
+                    Chunk.created_at >= cutoff_time
+                )
+            )
+        )
+        if existing_chunk.scalar_one_or_none():
+            logger.info(f"Skipping duplicate chunk for agent {agent_id}")
+            return  # Skip entire ingest if chunk is duplicate
+        
         chunk = Chunk(
             agent_id=agent_id,
             scope=scope,
