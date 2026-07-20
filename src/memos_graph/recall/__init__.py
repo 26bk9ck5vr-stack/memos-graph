@@ -183,7 +183,7 @@ class RecallEngine:
     def _get_reranker(self):
         """Lazy init Cross-Encoder reranker."""
         if self._reranker is None:
-            self._reranker = CrossEncoderReranker('BAAI/bge-reranker-large')
+            self._reranker = CrossEncoderReranker('BAAI/bge-reranker-base')  # base 模型更快
         return self._reranker
 
     async def close(self):
