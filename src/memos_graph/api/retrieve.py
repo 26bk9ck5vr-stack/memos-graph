@@ -96,7 +96,7 @@ async def retrieve_context(
     if "memories" in request.search_types:
         memory_results = await _search_memories(
             session, request.agent_id, query_vec_str, 
-            request.top_k, request.time_range_hours
+            request.top_k, request.time_range_hours, request.query
         )
         all_results.extend(memory_results)
     
@@ -130,27 +130,57 @@ async def _search_memories(
     query_vec_str: str,
     top_k: int,
     time_range_hours: Optional[int] = None,
+    query_text: str = "",  # Add query text for FTS
 ) -> list[RetrieveResult]:
-    """Search memories using cosine similarity."""
+    """Search memories using hybrid FTS + vector similarity."""
     
     # Build time filter
     time_filter = ""
     if time_range_hours:
         time_filter = f"AND c.created_at >= NOW() - INTERVAL '{time_range_hours} hours'"
     
-    # Cosine similarity search using pgvector
+    # Hybrid search: Combine FTS (tsvector) + Vector Similarity
+    # Use RRF (Reciprocal Rank Fusion) to combine both rankings
     query = text(f"""
+        WITH fts_results AS (
+            -- FTS search results
+            SELECT 
+                c.id,
+                c.content,
+                c.created_at,
+                c.metadata as metadata,
+                1.0 / (ROW_NUMBER() OVER (ORDER BY ts_rank(c.tsvector, plainto_tsquery('simple', :query_text)) DESC) + 60) as rrf_score
+            FROM chunks c
+            WHERE c.agent_id = :agent_id
+            AND c.tsvector IS NOT NULL
+            AND c.tsvector @@ plainto_tsquery('simple', :query_text)
+            {time_filter}
+            LIMIT 100
+        ),
+        vector_results AS (
+            -- Vector similarity search results
+            SELECT 
+                c.id,
+                c.content,
+                c.created_at,
+                c.metadata as metadata,
+                1.0 / (ROW_NUMBER() OVER (ORDER BY (1 - cosine_distance(cv.embedding, '{query_vec_str}'::vector)) DESC) + 60) as rrf_score
+            FROM chunks c
+            JOIN chunk_vectors cv ON c.id = cv.chunk_id
+            WHERE c.agent_id = :agent_id
+            {time_filter}
+            LIMIT 100
+        )
         SELECT 
-            c.id,
-            c.content,
-            c.created_at,
-            c.metadata as metadata,
-            (1 - cosine_distance(cv.embedding, '{query_vec_str}'::vector)) as similarity
-        FROM chunks c
-        JOIN chunk_vectors cv ON c.id = cv.chunk_id
-        WHERE c.agent_id = :agent_id
-        {time_filter}
-        ORDER BY similarity DESC
+            COALESCE(f.id, v.id) as id,
+            COALESCE(f.content, v.content) as content,
+            COALESCE(f.created_at, v.created_at) as created_at,
+            COALESCE(f.metadata, v.metadata) as metadata,
+            SUM(COALESCE(f.rrf_score, 0) + COALESCE(v.rrf_score, 0)) as rrf_score
+        FROM fts_results f
+        FULL OUTER JOIN vector_results v ON f.id = v.id
+        GROUP BY 1, 2, 3, 4
+        ORDER BY rrf_score DESC
         LIMIT :limit
     """)
     
@@ -159,6 +189,7 @@ async def _search_memories(
         {
             "agent_id": agent_id,
             "limit": top_k,
+            "query_text": request.query,  # Add query text for FTS
         }
     )
     
@@ -166,10 +197,8 @@ async def _search_memories(
     
     results_list = []
     for row in rows:
-        # Handle NaN and None similarity scores
-        similarity = row.similarity
-        if similarity is None or (isinstance(similarity, float) and (similarity != similarity)):  # NaN check
-            similarity = 0.0
+        # Use rrf_score as the final score
+        score = float(row.rrf_score) if row.rrf_score else 0.0
         
         results_list.append(
             RetrieveResult(
@@ -177,7 +206,7 @@ async def _search_memories(
                 type="memory",
                 content=row.content[:500],  # Truncate long content
                 summary=None,
-                score=float(similarity),
+                score=score,
                 created_at=row.created_at,
                 metadata=row.metadata if isinstance(row.metadata, dict) else None,
             )
