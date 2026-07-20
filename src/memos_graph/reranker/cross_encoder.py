@@ -1,6 +1,7 @@
 """Cross-Encoder 重排器 - 替代 LLM 重排"""
 
-from sentence_transformers import CrossEncoder
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+import torch
 from typing import List, Tuple
 import logging
 
@@ -9,19 +10,23 @@ logger = logging.getLogger(__name__)
 class CrossEncoderReranker:
     """使用 Cross-Encoder 进行文档重排"""
     
-    def __init__(self, model_name: str = 'BAAI/bge-reranker-large'):
+    def __init__(self, model_name: str = 'BAAI/bge-reranker-base'):
         """
         初始化 Cross-Encoder
         
         Args:
             model_name: 模型名称
                 推荐选项:
-                - BAAI/bge-reranker-large: 中文支持好，CPU 友好
-                - BAAI/bge-reranker-base: 更快，精度略低
-                - cross-encoder/ms-marco-MiniLM-L-6-v2: 英文最优
+                - BAAI/bge-reranker-base: 快速，中文支持好 (推荐)
+                - BAAI/bge-reranker-large: 精度更高，但更慢
         """
         logger.info(f"Loading Cross-Encoder model: {model_name}")
-        self.model = CrossEncoder(model_name)
+        
+        # 使用 transformers 直接加载（比 sentence-transformers 更可靠）
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        self.model.eval()  # 设置为评估模式
+        
         self.model_name = model_name
         logger.info(f"Model loaded successfully")
     
@@ -48,8 +53,16 @@ class CrossEncoderReranker:
         # 构建 (query, doc) 对
         pairs = [[query, doc[:512]] for doc in documents]  # 截断避免过长
         
-        # 预测分数
-        scores = self.model.predict(pairs)
+        # 使用 transformers 推理
+        inputs = self.tokenizer(pairs, padding=True, truncation=True, return_tensors='pt', max_length=512)
+        with torch.no_grad():
+            scores = self.model(**inputs).logits.squeeze()
+        
+        # 处理单个文档的情况
+        if len(documents) == 1:
+            scores = [scores.item()]
+        else:
+            scores = scores.tolist()
         
         # 排序
         indices = list(range(len(scores)))
@@ -76,7 +89,15 @@ class CrossEncoderReranker:
             return []
         
         pairs = [[query, doc[:512]] for doc in documents]
-        scores = self.model.predict(pairs)
+        inputs = self.tokenizer(pairs, padding=True, truncation=True, return_tensors='pt', max_length=512)
+        
+        with torch.no_grad():
+            scores = self.model(**inputs).logits.squeeze()
+        
+        if len(documents) == 1:
+            scores = [scores.item()]
+        else:
+            scores = scores.tolist()
         
         indices_scores = list(enumerate(scores))
         indices_scores.sort(key=lambda x: x[1], reverse=True)
