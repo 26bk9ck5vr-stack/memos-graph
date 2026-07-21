@@ -120,7 +120,7 @@ async def realtime_sync(
             async def generate_embedding_async():
                 """后台异步生成向量嵌入"""
                 try:
-                    from memos_graph.db.database import AsyncSessionLocal
+                    from memos_graph.db.session import AsyncSessionLocal
                     from memos_graph.db.models import ChunkVector
                     from memos_graph.embedding import EmbeddingService
                     from memos_graph.config import Settings
