@@ -167,25 +167,35 @@ async def retrieve(request: RetrieveRequest):
         time_filter = f"AND c.created_at >= NOW() - INTERVAL '{request.time_range_hours} hours'" if request.time_range_hours else ""
         
         # === Stage 1: FTS (全文搜索) ===
-        # P0 优化：自动拆分中文查询关键词，提升 FTS 触发率
+        # P1 优化：jieba 中文分词 + 智能拆分
         def preprocess_query(query: str) -> str:
-            """查询预处理：拆分中文长查询为关键词"""
-            # 策略 1: 按常见分隔符拆分
+            """查询预处理：使用 jieba 智能分词"""
             import re
-            # 按空格、标点符号拆分
+            
+            # 策略 1: 按常见分隔符拆分
             parts = re.split(r'[\s,，.。?？!！;；:：]+', query)
             parts = [p.strip() for p in parts if p.strip()]
             
-            # 策略 2: 如果查询太长 (>6 字符) 且没有自然分隔，尝试按语义拆分
+            # 策略 2: 如果查询太长 (>6 字符) 且没有自然分隔，使用 jieba 分词
             if len(parts) == 1 and len(query) > 6:
-                # 尝试按常见技术术语拆分 (简单启发式)
-                # 例如："星火 key 优化方案" → ["星火", "key", "优化", "方案"]
-                # 使用正则匹配中英文混合
-                mixed_parts = re.findall(r'[\u4e00-\u9fa5]+|[a-zA-Z0-9]+', query)
-                if len(mixed_parts) > 1:
-                    parts = mixed_parts
+                try:
+                    import jieba
+                    # 使用精确模式分词
+                    jieba_parts = list(jieba.cut(query))
+                    # 过滤掉单字符 (除非是英文/数字)
+                    jieba_parts = [
+                        p for p in jieba_parts 
+                        if len(p) > 1 or not p.isalpha()
+                    ]
+                    if len(jieba_parts) > 1:
+                        parts = jieba_parts
+                except ImportError:
+                    # jieba 不可用时，回退到正则拆分
+                    mixed_parts = re.findall(r'[\u4e00-\u9fa5]+|[a-zA-Z0-9]+', query)
+                    if len(mixed_parts) > 1:
+                        parts = mixed_parts
             
-            # 用 & 连接 (AND 逻辑)，让 PostgreSQL 匹配所有关键词
+            # 用 & 连接 (AND 逻辑)
             return ' & '.join(f"'{p}'" for p in parts) if parts else query
         
         processed_query = preprocess_query(request.query)
