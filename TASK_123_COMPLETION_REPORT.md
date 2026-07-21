@@ -25,7 +25,7 @@
 neo4j:
   uri: bolt://localhost:7687
   username: neo4j
-  password: memos2024
+  password: <your-password>
 ```
 
 **端口**:

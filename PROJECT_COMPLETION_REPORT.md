@@ -59,7 +59,7 @@ agent_state:    2+ 个
 **验证测试**:
 ```bash
 # Neo4j HTTP 接口测试
-curl -u neo4j:memos2024 "http://localhost:7474/db/neo4j/tx/commit" \
+curl -u neo4j:<password> "http://localhost:7474/db/neo4j/tx/commit" \
   -H "Content-Type: application/json" \
   -d '{"statements": [{"statement": "MATCH (n) RETURN count(n)"}]}'
 
@@ -197,7 +197,7 @@ const API_BASE = 'http://0.0.0.0:8765/api/v1';
 neo4j:
   uri: bolt://0.0.0.0:7687
   username: neo4j
-  password: memos2024
+  password: <your-password>
 ```
 
 ---

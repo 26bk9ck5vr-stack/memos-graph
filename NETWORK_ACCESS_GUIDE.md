@@ -93,7 +93,7 @@ database:
 neo4j:
   uri: bolt://0.0.0.0:7687  # ← 已改为 0.0.0.0
   username: neo4j
-  password: memos2024
+  password: <your-password>
 
 llm:
   base_url: https://maas-coding-api.cn-huabei-1.xf-yun.com/v2
@@ -198,7 +198,7 @@ LISTEN 0      128          0.0.0.0:7687       0.0.0.0:*    users:(("java",pid=10
 curl http://localhost:8765/dashboard | head -5
 
 # 测试 Neo4j HTTP
-curl -u neo4j:memos2024 http://localhost:7474/db/neo4j/tx/commit \
+curl -u neo4j:<password> http://localhost:7474/db/neo4j/tx/commit \
   -H "Content-Type: application/json" \
   -d '{"statements": [{"statement": "MATCH (n) RETURN count(n)"}]}'
 ```
@@ -278,7 +278,7 @@ server {
 
 ```bash
 # Neo4j 密码
-cypher-shell -u neo4j -p memos2024
+cypher-shell -u neo4j -p <password>
 > ALTER CURRENT USER SET PASSWORD FROM 'memos2024' TO 'your_strong_password';
 ```
 
@@ -380,7 +380,7 @@ sudo neo4j restart
 ss -tlnp | grep -E "7474|7687"
 
 # 4. 测试连接
-curl -u neo4j:memos2024 http://localhost:7474/db/neo4j/tx/commit \
+curl -u neo4j:<password> http://localhost:7474/db/neo4j/tx/commit \
   -H "Content-Type: application/json" \
   -d '{"statements": [{"statement": "RETURN 1"}]}'
 ```

@@ -237,7 +237,7 @@ def get_neo4j_client() -> Neo4jClient:
         
         neo4j_uri = cfg.neo4j.uri if hasattr(cfg, 'neo4j') else "bolt://localhost:7687"
         neo4j_user = cfg.neo4j.username if hasattr(cfg, 'neo4j') else "neo4j"
-        neo4j_password = cfg.neo4j.password if hasattr(cfg, 'neo4j') else "memos2024"
+        neo4j_password = cfg.neo4j.password if hasattr(cfg, 'neo4j') else ""
         
         _neo4j_client = Neo4jClient(
             uri=neo4j_uri,

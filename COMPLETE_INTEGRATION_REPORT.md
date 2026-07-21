@@ -33,14 +33,14 @@
 neo4j:
   uri: bolt://localhost:7687
   username: neo4j
-  password: memos2024
+  password: <your-password>
 ```
 
 ### 验证测试
 
 **HTTP 接口测试**:
 ```bash
-curl -s -u neo4j:memos2024 "http://localhost:7474/db/neo4j/tx/commit" \
+curl -s -u neo4j:<password> "http://localhost:7474/db/neo4j/tx/commit" \
   -H "Content-Type: application/json" \
   -d '{"statements": [{"statement": "MATCH (n) RETURN count(n) as count"}]}'
 ```
