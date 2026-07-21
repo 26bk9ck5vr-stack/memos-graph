@@ -8,7 +8,7 @@ from __future__ import annotations
 import time
 import httpx
 from memos_graph.llm.client import LLMClient
-from memos_graph.embedding import EmbeddingService
+from memos_graph.embedding import EmbeddingService, NotImplementedByDesignError
 from memos_graph.reranker.cross_encoder import CrossEncoderReranker
 import json
 import re
@@ -136,13 +136,19 @@ class RecallEngine:
         embedding_provider: str = "siliconflow",
         embedding_model: str = "BAAI/bge-m3",
         embedding_base_url: str = "https://api.siliconflow.cn/v1",
-        embedding_api_key: str = "",
+        embedding_api_key: str | None = None,
+        # Shim for backward compatibility with test_contracts.py
+        embedding_service: str | None = None,  # Alias for embedding_provider
         embedding_timeout: float = 30.0,
         llm_base_url: str = "",
         llm_api_key: str = "",
         llm_model: str = "",
         llm_timeout: int = 60,
     ) -> None:
+        # Shim: if embedding_service is provided, use it as embedding_provider
+        if embedding_service is not None:
+            embedding_provider = embedding_service
+        
         from memos_graph.config import load_config
         from memos_graph.llm.client import LLMClient
         cfg = load_config()
@@ -724,10 +730,18 @@ class RecallEngine:
 
 
 __all__ = [
-    "RecallEngine",
+    # Errors
+    "RecallError",
+    "NotImplementedByDesignError",
+    
+    # Data classes
     "RecallRequest",
     "RecallHit",
     "RecallResult",
-    "RecallError",
+    
+    # Engine
+    "RecallEngine",
+    
+    # Re-export from embedding for cross-module tests
     "EmbeddingService",
 ]

@@ -67,8 +67,17 @@ class SiliconflowEmbedder(Embedder):
         self._timeout = timeout
         self._client = httpx.AsyncClient(timeout=timeout)
         
+        # 模型维度映射
+        # nomic-embed-text = 768 维
         # BAAI/bge-m3 = 1024 维
-        self._dimension = 1024 if "bge-m3" in model.lower() else 1024
+        # mxbai-embed-large = 1024 维
+        model_lower = model.lower()
+        if "nomic" in model_lower:
+            self._dimension = 768
+        elif "bge-m3" in model_lower:
+            self._dimension = 1024
+        else:
+            self._dimension = 1024  # 默认 1024
     
     async def embed(self, text: str) -> list[float]:
         """单文本嵌入。"""
