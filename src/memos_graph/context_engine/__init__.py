@@ -37,6 +37,7 @@ class ContextInjector:
 
         Returns:
             dict with keys: agent_state, events, promises, memories, injected_at
+        """
         # Load or create user profile
         from memos_graph.db.session import _async_session_factory
         async with _async_session_factory() as session:
