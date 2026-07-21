@@ -148,7 +148,7 @@ async def realtime_sync(
                         model=cfg.embedding.model,
                         base_url=cfg.embedding.base_url,
                         api_key=cfg.embedding.api_key,
-                        timeout_seconds=cfg.embedding.timeout_seconds,
+                        timeout=cfg.embedding.timeout_seconds,  # 正确参数名：timeout
                     )
                     
                     async with _async_session_factory() as bg_session:
