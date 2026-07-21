@@ -133,7 +133,7 @@ class Neo4jSettings(BaseSettings):
     """Neo4j settings."""
     uri: str = Field(default="bolt://localhost:7687")
     username: str = Field(default="neo4j")
-    password: str = Field(default="memos2024")
+    password: str = Field(default="")  # Set via MEMOS_NEO4J_PASSWORD env var or config.yaml
 
     model_config = SettingsConfigDict(env_prefix="MEMOS_NEO4J_")
 
