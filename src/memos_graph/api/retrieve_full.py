@@ -202,10 +202,10 @@ async def retrieve(request: RetrieveRequest):
         
         fts_sql = text(f"""
             SELECT c.id, c.content, c.created_at, 
-                   ts_rank(c.tsvector, plainto_tsquery('simple', :query)) as score
+                   ts_rank(c.tsvector, plainto_tsquery('jiebacfg'::regconfig, :query)) as score
             FROM chunks c
             WHERE c.agent_id = :agent_id
-              AND c.tsvector @@ plainto_tsquery('simple', :query)
+              AND c.tsvector @@ plainto_tsquery('jiebacfg'::regconfig, :query)
               {time_filter}
             ORDER BY score DESC
             LIMIT :top_k
