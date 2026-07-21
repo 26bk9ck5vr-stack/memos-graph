@@ -1,16 +1,34 @@
-# memos-graph v2.0
+# memos-graph v0.9.0-beta
 
-Agent state and long-term memory engine with PostgreSQL + pgvector + knowledge graph.
+⚠️ **Beta Release** - Core features functional, v2.0 roadmap in progress.
 
-## Features
+**Agent state and long-term memory engine with PostgreSQL + pgvector + knowledge graph.**
 
-- ✅ **Entity Extraction**: LLM-powered extraction of persons, places, organizations, concepts
-- ✅ **Event & Promise Tracking**: Structured event stream and promise management
-- ✅ **Agent State Management**: Affinity, mood, energy, relationship stages
-- ✅ **Vector Search**: 1024-dimensional embeddings with pgvector
-- ✅ **Knowledge Graph**: Entity relationships and graph-based retrieval
-- ✅ **Agent Pack Protocol**: Standardized pack format with YAML manifest
-- ✅ **Heartbeat Scheduler**: Active message scheduling based on agent state
+## Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| **Core Write/Recall** | ✅ Stable | Real-time sync (35-50ms), 7-stage recall |
+| **Chinese FTS** | ✅ Complete | pg_jieba integration |
+| **Embedding** | ✅ Complete | BAAI/bge-m3 via SiliconFlow |
+| **Rerank** | ✅ Complete | SiliconFlow API |
+| **v2 Relationships** | ⚠️ In Progress | Schema missing |
+| **Pack Runtime** | ⚠️ Skeleton | ABC interfaces |
+| **Heartbeat** | ⚠️ Skeleton | Scheduler not implemented |
+| **Nako Pack** | ❌ Placeholder | Empty shell |
+
+## Features (Implemented)
+
+- ✅ **Real-time Sync**: Write latency 35-50ms with async vector generation
+- ✅ **7-Stage Recall**: FTS → Pattern → Time → RRF → MMR → Time Decay
+- ✅ **Chinese FTS**: pg_jieba integration (100% trigger rate)
+- ✅ **Vector Search**: BAAI/bge-m3 1024-dimensional embeddings
+- ✅ **Entity Extraction**: LLM-powered extraction
+- ✅ **Event & Promise Tracking**: Basic CRUD operations
+- ✅ **Agent State**: Read-only state management
+- ⚠️ **Knowledge Graph**: Entity relationships (missing `relationships` table)
+- ⚠️ **Pack Protocol**: YAML schema defined, runtime in progress
+- ⚠️ **Heartbeat**: Interface defined, scheduler in progress
 
 ## Architecture
 
