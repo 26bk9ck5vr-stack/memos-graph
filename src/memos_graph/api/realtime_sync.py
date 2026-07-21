@@ -120,11 +120,13 @@ async def realtime_sync(
             logger.info(f"分词后：'{tokenized_content}'")
             logger.info(f"分词长度：{len(tokenized_content)}")
             
-            # 直接使用 SQL 生成 tsvector，使用 ::regconfig 确保正确解析 jiebacfg
+            # 测试：直接使用硬编码的 SQL，不用参数
             from sqlalchemy import text
+            test_sql = f"SELECT to_tsvector('jiebacfg'::regconfig, '{tokenized_content}')"
+            logger.info(f"测试 SQL: {test_sql}")
+            
             result = await session.execute(
-                text("SELECT to_tsvector('jiebacfg'::regconfig, :content)"),
-                {"content": tokenized_content}
+                text(test_sql)
             )
             tsvector = result.scalar()
             logger.info(f"tsvector: {tsvector}")
