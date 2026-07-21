@@ -182,10 +182,10 @@ async def retrieve(request: RetrieveRequest):
                     import jieba
                     # 使用精确模式分词
                     jieba_parts = list(jieba.cut(query))
-                    # 过滤掉单字符 (除非是英文/数字)
+                    # 过滤掉单字符和空格
                     jieba_parts = [
                         p for p in jieba_parts 
-                        if len(p) > 1 or not p.isalpha()
+                        if p.strip() and (len(p) > 1 or not p.isalpha())
                     ]
                     if len(jieba_parts) >= 1:
                         parts = jieba_parts
