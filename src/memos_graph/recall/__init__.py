@@ -93,19 +93,25 @@ class RecallResult:
 
 # === RRF Fusion ===
 
-def rrf_fuse(hits_list: list[list[tuple[int, float]]], k: int = 60) -> list[tuple[int, float]]:
+def rrf_fuse(hits_list: list[list[tuple[int, float]]], k: int = 60, weights: list[float] | None = None) -> list[tuple[int, float]]:
     """Reciprocal Rank Fusion 合并多个结果列表。
 
     Args:
         hits_list: 每个列表是 [(chunk_id, score), ...]
         k: RRF 参数，默认 60
+        weights: 每个列表的权重，默认 [1.0, 1.0, 1.0]。P0 优化：FTS 权重提升到 4.0
     """
     scores: dict[int, float] = {}
-
-    for hits in hits_list:
+    
+    # P0 优化：支持自定义权重 (默认 FTS:4.0, Pattern:1.5, Time:0.5)
+    if weights is None:
+        weights = [4.0, 1.5, 0.5]  # 提升 FTS 权重，增强关键词匹配
+    
+    for idx, hits in enumerate(hits_list):
+        weight = weights[idx] if idx < len(weights) else 1.0
         for rank, (chunk_id, score) in enumerate(hits):
             rrf = 1.0 / (k + rank + 1)
-            scores[chunk_id] = scores.get(chunk_id, 0.0) + rrf * score
+            scores[chunk_id] = scores.get(chunk_id, 0.0) + rrf * score * weight
 
     return sorted(scores.items(), key=lambda x: x[1], reverse=True)
 

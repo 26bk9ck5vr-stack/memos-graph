@@ -166,12 +166,35 @@ async def retrieve(request: RetrieveRequest):
         # === Stage 1: FTS ===
         time_filter = f"AND c.created_at >= NOW() - INTERVAL '{request.time_range_hours} hours'" if request.time_range_hours else ""
         
+        # === Stage 1: FTS (全文搜索) ===
+        # P0 优化：自动拆分中文查询关键词，提升 FTS 触发率
+        def preprocess_query(query: str) -> str:
+            """查询预处理：拆分中文长查询为关键词"""
+            # 策略 1: 按常见分隔符拆分
+            import re
+            # 按空格、标点符号拆分
+            parts = re.split(r'[\s,，.。?？!！;；:：]+', query)
+            parts = [p.strip() for p in parts if p.strip()]
+            
+            # 策略 2: 如果查询太长 (>6 字符) 且没有自然分隔，尝试按语义拆分
+            if len(parts) == 1 and len(query) > 6:
+                # 尝试按常见技术术语拆分 (简单启发式)
+                # 例如："星火 key 优化方案" → ["星火", "key", "优化", "方案"]
+                # 使用正则匹配中英文混合
+                mixed_parts = re.findall(r'[\u4e00-\u9fa5]+|[a-zA-Z0-9]+', query)
+                if len(mixed_parts) > 1:
+                    parts = mixed_parts
+            
+            # 用 & 连接 (AND 逻辑)，让 PostgreSQL 匹配所有关键词
+            return ' & '.join(f"'{p}'" for p in parts) if parts else query
+        
+        processed_query = preprocess_query(request.query)
+        
         fts_sql = text(f"""
-            SELECT c.id, c.content, c.created_at,
+            SELECT c.id, c.content, c.created_at, 
                    ts_rank(c.tsvector, plainto_tsquery('simple', :query)) as score
             FROM chunks c
             WHERE c.agent_id = :agent_id
-              AND c.tsvector IS NOT NULL
               AND c.tsvector @@ plainto_tsquery('simple', :query)
               {time_filter}
             ORDER BY score DESC
@@ -179,7 +202,7 @@ async def retrieve(request: RetrieveRequest):
         """)
         
         result = await session.execute(fts_sql, {
-            "query": request.query,
+            "query": processed_query,
             "agent_id": request.agent_id,
             "top_k": request.fts_top_k,
         })
