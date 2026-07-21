@@ -114,7 +114,14 @@ async def realtime_sync(
                     return text
             
             tokenized_content = tokenize_for_fts(content)
-            tokenized_content = tokenize_for_fts(content)
+            
+            # 直接使用 SQL 生成 tsvector，避免 SQLAlchemy func 的问题
+            from sqlalchemy import text
+            result = await session.execute(
+                text("SELECT to_tsvector('jiebacfg', :content)"),
+                {"content": tokenized_content}
+            )
+            tsvector = result.scalar()
             
             chunk = Chunk(
                 agent_id=agent_id,
@@ -126,7 +133,7 @@ async def realtime_sync(
                     "source": "realtime_sync",
                     "session_id": session_id
                 },
-                tsvector=func.to_tsvector('jiebacfg', tokenized_content)  # 使用 jieba 中文分词
+                tsvector=tsvector  # 使用 jieba 中文分词
             )
             session.add(chunk)
             await session.flush()  # 获取 chunk.id
