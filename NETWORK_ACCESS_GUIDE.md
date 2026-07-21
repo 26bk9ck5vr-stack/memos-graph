@@ -279,7 +279,7 @@ server {
 ```bash
 # Neo4j 密码
 cypher-shell -u neo4j -p <password>
-> ALTER CURRENT USER SET PASSWORD FROM 'memos2024' TO 'your_strong_password';
+> ALTER CURRENT USER SET PASSWORD FROM '<password>' TO 'your_strong_password';
 ```
 
 ---
