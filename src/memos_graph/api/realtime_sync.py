@@ -120,12 +120,12 @@ async def realtime_sync(
             async def generate_embedding_async():
                 """后台异步生成向量嵌入"""
                 try:
-                    from memos_graph.db.session import AsyncSessionLocal
+                    from memos_graph.db.session import _async_session_factory
                     from memos_graph.db.models import ChunkVector
                     from memos_graph.embedding import EmbeddingService
-                    from memos_graph.config import Settings
+                    from memos_graph.config import load_config
                     
-                    cfg = Settings()
+                    cfg = load_config()
                     embedding_service = EmbeddingService(
                         provider=cfg.embedding.provider,
                         model=cfg.embedding.model,
@@ -135,7 +135,7 @@ async def realtime_sync(
                         timeout=cfg.embedding.timeout_seconds,
                     )
                     
-                    async with AsyncSessionLocal() as bg_session:
+                    async with _async_session_factory() as bg_session:
                         embedding = await embedding_service.embed(content)
                         # 确保向量是 list[float] 格式
                         if hasattr(embedding, 'tolist'):
