@@ -88,7 +88,7 @@ class SiliconflowEmbedder(Embedder):
         clean_texts = [str(t).strip() for t in texts if t and str(t).strip()]
         if not clean_texts:
             return [zero_vector] * len(texts)
-        payload = {"model": self._model, "input": clean_texts}
+        payload = {"model": self._model, "input": clean_texts, "encoding_format": "float"}
         
         try:
             resp = await self._client.post(
@@ -101,7 +101,19 @@ class SiliconflowEmbedder(Embedder):
             
             # OpenAI-compatible 响应格式
             embeddings = [item["embedding"] for item in data["data"]]
-            return embeddings
+            
+            # 确保每个向量都是 list[float]
+            result = []
+            for emb in embeddings:
+                if hasattr(emb, 'tolist'):
+                    result.append(emb.tolist())  # numpy → list
+                elif isinstance(emb, (list, tuple)):
+                    result.append(list(emb))
+                else:
+                    logger.warning(f"Unexpected embedding type: {type(emb)}, using zero vector")
+                    result.append(zero_vector)
+            
+            return result
         except httpx.HTTPStatusError as e:
             logger.error(f"Embedding API HTTP {e.response.status_code}: {e.response.text[:200]}, returning zero vectors")
             return [zero_vector for _ in texts]
@@ -184,6 +196,11 @@ class EmbeddingService:
     def dimension(self) -> int:
         """返回当前模型维度。"""
         return self._get_embedder().dimension
+    
+    @property
+    def model(self) -> str:
+        """返回当前模型名称。"""
+        return self._model
     
     async def close(self) -> None:
         """关闭 HTTP 客户端。"""

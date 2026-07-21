@@ -9,7 +9,7 @@ import logging
 from memos_graph.config import load_config, Config
 from memos_graph.db.session import create_session_factory, _async_session_factory
 from memos_graph.db.models import Base
-from memos_graph.api import health, memories, agents, events, promises, packs, users, graph, neo4j_graph, retrieve, realtime_sync
+from memos_graph.api import health, memories, agents, events, promises, packs, users, graph, neo4j_graph, realtime_sync, retrieve_full as retrieve
 from memos_graph.llm.client import LLMClient
 from memos_graph.heartbeat.scheduler import HeartbeatScheduler
 from memos_graph.sync.hermes_sync import HermesSyncWorker
@@ -99,10 +99,10 @@ def create_app(config_path: Path | None = None, config: Config | None = None) ->
         # app.state.scheduler = scheduler
         # logger.info("HeartbeatScheduler started")
 
-        # Start HermesSyncWorker
-        hermes_worker = HermesSyncWorker()
-        await hermes_worker.start()
-        app.state.hermes_worker = hermes_worker
+        # Start HermesSyncWorker - DISABLED: Using realtime write API instead
+        # hermes_worker = HermesSyncWorker()
+        # hermes_worker.start()
+        logger.info("HermesSyncWorker disabled - using realtime write API (POST /api/v1/sync/realtime)")
         logger.info("HermesSyncWorker started")
 
     @app.on_event("shutdown")

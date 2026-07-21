@@ -116,6 +116,13 @@ async def realtime_sync(
             # 生成向量嵌入
             try:
                 embedding = await embedding_service.embed(content)
+                # 确保向量是 list[float] 格式 (pgvector 要求)
+                if hasattr(embedding, 'tolist'):
+                    embedding = embedding.tolist()  # numpy array → list
+                elif isinstance(embedding, dict):
+                    # 如果返回的是 dict，提取 embedding 字段
+                    embedding = embedding.get('embedding', [0.0] * 1024)
+                
                 chunk_vector = ChunkVector(
                     chunk_id=chunk.id,
                     embedding=embedding,

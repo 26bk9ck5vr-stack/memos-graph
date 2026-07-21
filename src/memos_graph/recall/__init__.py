@@ -56,6 +56,9 @@ class RecallRequest:
     time_top_k: int = 80         # 时间召回数量
     rrf_top_k: int = 100         # RRF 融合后取 Top-K 给 LLM
     vector_top_k: int = 0        # 默认禁用向量搜索（可选）
+    # 性能模式
+    performance_mode: str = "standard"  # fast|standard|full
+    time_range_hours: Optional[int] = None  # 时间范围 (小时)
 
 
 @dataclass
