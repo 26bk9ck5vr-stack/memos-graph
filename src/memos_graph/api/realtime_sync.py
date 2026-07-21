@@ -115,8 +115,10 @@ async def realtime_sync(
             
             tokenized_content = tokenize_for_fts(content)
             
+            logger.info(f"=== 分词调试 ===")
             logger.info(f"原始内容：'{content}'")
             logger.info(f"分词后：'{tokenized_content}'")
+            logger.info(f"分词长度：{len(tokenized_content)}")
             
             # 直接使用 SQL 生成 tsvector，避免 SQLAlchemy func 的问题
             from sqlalchemy import text
@@ -126,6 +128,7 @@ async def realtime_sync(
             )
             tsvector = result.scalar()
             logger.info(f"tsvector: {tsvector}")
+            logger.info(f"==================")
             
             chunk = Chunk(
                 agent_id=agent_id,
