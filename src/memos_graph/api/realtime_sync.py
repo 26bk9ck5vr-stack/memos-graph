@@ -107,13 +107,14 @@ async def realtime_sync(
                     # 过滤标点符号
                     parts = [p for p in parts if p.strip() and not all(c in ',.!?.,!?;:;:' for c in p)]
                     result = ' '.join(parts)
-                    logger.debug(f"jieba 分词：'{text}' → '{result}'")
+                    logger.info(f"jieba 分词：'{text}' → '{result}'")  # 改成 INFO
                     return result
                 except Exception as e:
                     logger.error(f"jieba 分词失败：{e}")
                     return text
             
             tokenized_content = tokenize_for_fts(content)
+            logger.info(f"最终 tsvector 内容：'{tokenized_content}'")  # 添加日志
             
             chunk = Chunk(
                 agent_id=agent_id,
