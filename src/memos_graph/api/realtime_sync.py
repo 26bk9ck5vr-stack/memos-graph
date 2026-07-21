@@ -114,7 +114,7 @@ async def realtime_sync(
                     return text
             
             tokenized_content = tokenize_for_fts(content)
-            logger.info(f"最终 tsvector 内容：'{tokenized_content}'")  # 添加日志
+            tokenized_content = tokenize_for_fts(content)
             
             chunk = Chunk(
                 agent_id=agent_id,
@@ -126,7 +126,7 @@ async def realtime_sync(
                     "source": "realtime_sync",
                     "session_id": session_id
                 },
-                tsvector=func.to_tsvector('simple', tokenized_content)  # 使用分词后的内容
+                tsvector=func.to_tsvector('jiebacfg', tokenized_content)  # 使用 jieba 中文分词
             )
             session.add(chunk)
             await session.flush()  # 获取 chunk.id
