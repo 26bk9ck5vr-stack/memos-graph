@@ -145,12 +145,10 @@ async def realtime_sync(
                     
                     cfg = load_config()
                     embedding_service = EmbeddingService(
-                        provider=cfg.embedding.provider,
                         model=cfg.embedding.model,
                         base_url=cfg.embedding.base_url,
                         api_key=cfg.embedding.api_key,
-                        dimension=cfg.embedding.dimension,
-                        timeout_seconds=cfg.embedding.timeout_seconds,  # 修复：timeout → timeout_seconds
+                        timeout_seconds=cfg.embedding.timeout_seconds,
                     )
                     
                     async with _async_session_factory() as bg_session:
