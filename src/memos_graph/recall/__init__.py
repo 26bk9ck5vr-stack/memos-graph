@@ -161,8 +161,14 @@ class RecallEngine:
         # Lazy-initialized services
         self._embedding: Any | None = None
         self._llm: LLMClient | None = None
-        # Cross-Encoder reranker (lazy init)
-        self._reranker: CrossEncoderReranker | None = None
+        # Reranker (lazy init - support both local and API)
+        self._reranker: Any | None = None
+        self._rerank_provider = cfg.rerank.provider if hasattr(cfg, 'rerank') else 'siliconflow'
+        self._rerank_api_key = cfg.rerank.api_key if hasattr(cfg, 'rerank') else ''
+        self._rerank_model = cfg.rerank.model if hasattr(cfg, 'rerank') else 'BAAI/bge-reranker-v2-m3'
+        self._rerank_base_url = cfg.rerank.base_url if hasattr(cfg, 'rerank') else 'https://api.siliconflow.cn/v1/rerank'
+        self._rerank_timeout = cfg.rerank.timeout_seconds if hasattr(cfg, 'rerank') else 30
+        self._rerank_enabled = cfg.rerank.enabled if hasattr(cfg, 'rerank') else True
 
     def _get_embedding(self):
         """Lazy init embedding service."""
@@ -190,9 +196,31 @@ class RecallEngine:
         return self._llm
     
     def _get_reranker(self):
-        """Lazy init Cross-Encoder reranker."""
+        """Lazy init reranker (support both local Cross-Encoder and SiliconFlow API)."""
         if self._reranker is None:
-            self._reranker = CrossEncoderReranker('BAAI/bge-reranker-base')  # base 模型更快
+            # 检查是否启用 rerank
+            if not self._rerank_enabled:
+                logger.info("Rerank 已禁用，使用本地 Cross-Encoder 作为 fallback")
+                from memos_graph.reranker.cross_encoder import CrossEncoderReranker
+                self._reranker = CrossEncoderReranker('BAAI/bge-reranker-base')
+                return self._reranker
+            
+            # 根据 provider 选择
+            if self._rerank_provider == 'siliconflow':
+                logger.info(f"使用 SiliconFlow Rerank API: {self._rerank_model}")
+                from memos_graph.reranker.siliconflow_reranker import SiliconFlowReranker
+                self._reranker = SiliconFlowReranker(
+                    api_key=self._rerank_api_key,
+                    model=self._rerank_model,
+                    base_url=self._rerank_base_url,
+                    timeout=self._rerank_timeout
+                )
+            else:
+                # 默认使用本地 Cross-Encoder
+                logger.info("使用本地 Cross-Encoder Reranker")
+                from memos_graph.reranker.cross_encoder import CrossEncoderReranker
+                self._reranker = CrossEncoderReranker('BAAI/bge-reranker-base')
+        
         return self._reranker
 
     async def close(self):

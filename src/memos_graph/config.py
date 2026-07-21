@@ -129,6 +129,18 @@ class LLMSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="MEMOS_LLM_")
 
 
+class RerankSettings(BaseSettings):
+    """Rerank settings (SiliconFlow API)."""
+    provider: str = Field(default="siliconflow")  # siliconflow or local
+    model: str = Field(default="BAAI/bge-reranker-v2-m3")
+    base_url: str = Field(default="https://api.siliconflow.cn/v1/rerank")
+    api_key: str = Field(default="")
+    timeout_seconds: int = Field(default=30)
+    enabled: bool = Field(default=True)
+
+    model_config = SettingsConfigDict(env_prefix="MEMOS_RERANK_")
+
+
 class Neo4jSettings(BaseSettings):
     """Neo4j settings."""
     uri: str = Field(default="bolt://localhost:7687")
@@ -170,6 +182,7 @@ class Config(BaseSettings):
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     llm: LLMSettings = Field(default_factory=LLMSettings)
+    rerank: RerankSettings = Field(default_factory=RerankSettings)
     neo4j: Neo4jSettings = Field(default_factory=Neo4jSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
     viewer: ViewerSettings = Field(default_factory=ViewerSettings)
