@@ -167,7 +167,7 @@ async def retrieve(request: RetrieveRequest):
         time_filter = f"AND c.created_at >= NOW() - INTERVAL '{request.time_range_hours} hours'" if request.time_range_hours else ""
         
         # === Stage 1: FTS (全文搜索) ===
-        # P1 优化：jieba 中文分词 + 智能拆分
+        # P2 优化：所有中文查询都使用 jieba 分词
         def preprocess_query(query: str) -> str:
             """查询预处理：使用 jieba 智能分词"""
             import re
@@ -176,8 +176,8 @@ async def retrieve(request: RetrieveRequest):
             parts = re.split(r'[\s,，.。?？!！;；:：]+', query)
             parts = [p.strip() for p in parts if p.strip()]
             
-            # 策略 2: 如果查询太长 (>6 字符) 且没有自然分隔，使用 jieba 分词
-            if len(parts) == 1 and len(query) > 6:
+            # 策略 2: 中文查询使用 jieba 分词 (无论长度)
+            if len(parts) == 1 and any('\u4e00' <= c <= '\u9fa5' for c in query):
                 try:
                     import jieba
                     # 使用精确模式分词
@@ -187,7 +187,7 @@ async def retrieve(request: RetrieveRequest):
                         p for p in jieba_parts 
                         if len(p) > 1 or not p.isalpha()
                     ]
-                    if len(jieba_parts) > 1:
+                    if len(jieba_parts) >= 1:
                         parts = jieba_parts
                 except ImportError:
                     # jieba 不可用时，回退到正则拆分

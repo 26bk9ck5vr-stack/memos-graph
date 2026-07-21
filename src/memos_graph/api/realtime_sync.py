@@ -98,6 +98,23 @@ async def realtime_sync(
                 timestamp = datetime.utcnow()
             
             # 创建 Chunk
+            # P2 优化：先 jieba 分词，再用 simple 存储，确保 FTS 匹配
+            def tokenize_for_fts(text: str) -> str:
+                """使用 jieba 分词，返回空格分隔的文本用于 FTS"""
+                try:
+                    import jieba
+                    parts = list(jieba.cut(text))
+                    # 过滤标点符号
+                    parts = [p for p in parts if p.strip() and not all(c in ',.!?.,!?;:;:' for c in p)]
+                    result = ' '.join(parts)
+                    logger.debug(f"jieba 分词：'{text}' → '{result}'")
+                    return result
+                except Exception as e:
+                    logger.error(f"jieba 分词失败：{e}")
+                    return text
+            
+            tokenized_content = tokenize_for_fts(content)
+            
             chunk = Chunk(
                 agent_id=agent_id,
                 content=content,
@@ -108,7 +125,7 @@ async def realtime_sync(
                     "source": "realtime_sync",
                     "session_id": session_id
                 },
-                tsvector=func.to_tsvector('simple', content)  # 生成 FTS 向量
+                tsvector=func.to_tsvector('simple', tokenized_content)  # 使用分词后的内容
             )
             session.add(chunk)
             await session.flush()  # 获取 chunk.id
