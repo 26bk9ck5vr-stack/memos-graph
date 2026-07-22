@@ -10,6 +10,7 @@ from memos_graph.config import load_config, Config
 from memos_graph.db.session import create_session_factory, _async_session_factory
 from memos_graph.db.models import Base
 from memos_graph.api import health, memories, agents, events, promises, packs, users, graph, neo4j_graph, realtime_sync, retrieve_full as retrieve
+from memos_graph.api.viewer import router as viewer_router
 from memos_graph.llm.client import LLMClient
 from memos_graph.heartbeat.scheduler import HeartbeatScheduler
 from memos_graph.sync.hermes_sync import HermesSyncWorker
@@ -145,6 +146,7 @@ def create_app(config_path: Path | None = None, config: Config | None = None) ->
     app.include_router(retrieve.router, prefix="/api/v1", tags=["retrieve"])
     app.include_router(realtime_sync.router, prefix="/api/v1", tags=["realtime_sync"])
     app.include_router(neo4j_graph.router, prefix="/api/v1", tags=["neo4j"])
+    app.include_router(viewer_router, prefix="/api/v1/viewer", tags=["viewer"])
     
     return app
 
