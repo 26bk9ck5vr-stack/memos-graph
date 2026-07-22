@@ -157,7 +157,9 @@ class PackRunner:
         
         # Determine executable
         if script_path.suffix == ".py":
-            cmd = ["python3", str(script_path)] + (args or [])
+            # Use sys.executable for cross-platform compatibility
+            import sys
+            cmd = [sys.executable, str(script_path)] + (args or [])
         elif script_path.suffix in (".sh", ".bash"):
             cmd = ["bash", str(script_path)] + (args or [])
         else:

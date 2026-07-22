@@ -23,7 +23,7 @@ heartbeat:
     stage_4_hours: 8
     stage_5_hours: 6
   quiet_hours: "23:00-08:00"
-  template: agent/HEARTBEAT.md
+  template: HEARTBEAT.md
 
 skills:
   - voice
@@ -32,11 +32,12 @@ skills:
   - selfie
   - dokidoki
   - memory
-    memory:
-      backend: memos_graph
-      endpoint: http://localhost:8765
-      auto_inject: true
-      auto_extract: true
+
+memory:
+  backend: memos_graph
+  endpoint: http://localhost:8765
+  auto_inject: true
+  auto_extract: true
 
 preserve_on_upgrade:
   - agent/custom.md
