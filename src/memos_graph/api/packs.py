@@ -304,3 +304,89 @@ async def send_heartbeat(
     await scheduler.mark_heartbeat_sent(agent_id)
     
     return {"agent_id": agent_id, "status": "sent"}
+
+
+# === Pack Runner Endpoints (MVP) ===
+
+from memos_graph.pack.runner import run_pack, run_pack_interactive
+
+
+@router.post("/{pack_id}/run")
+async def run_pack_endpoint(
+    pack_id: str,
+    context: Optional[Dict[str, Any]] = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Run a pack (MVP).
+    
+    Args:
+        pack_id: Pack identifier
+        context: Execution context (optional)
+        
+    Returns:
+        Pack execution result
+    """
+    # Get pack from database
+    result = await session.execute(select(Pack).where(Pack.id == pack_id))
+    pack = result.scalar_one_or_none()
+    
+    if not pack:
+        raise HTTPException(status_code=404, detail=f"Pack {pack_id} not found")
+    
+    if not pack.enabled:
+        raise HTTPException(status_code=400, detail=f"Pack {pack_id} is disabled")
+    
+    if not pack.install_path:
+        raise HTTPException(status_code=400, detail=f"Pack {pack_id} has no install path")
+    
+    # Run pack (MVP)
+    pack_dir = Path(pack.install_path)
+    try:
+        run_result = await run_pack(pack_id, pack_dir, context or {})
+        
+        return {
+            "status": "success",
+            "pack_id": pack_id,
+            "result": run_result,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pack execution failed: {str(e)}")
+
+
+@router.post("/{pack_id}/interactive")
+async def run_pack_interactive_endpoint(
+    pack_id: str,
+    user_input: str,
+    session: AsyncSession = Depends(get_session),
+):
+    """Run pack in interactive mode (MVP).
+    
+    Args:
+        pack_id: Pack identifier
+        user_input: User input string
+        
+    Returns:
+        Pack response to user input
+    """
+    # Get pack from database
+    result = await session.execute(select(Pack).where(Pack.id == pack_id))
+    pack = result.scalar_one_or_none()
+    
+    if not pack:
+        raise HTTPException(status_code=404, detail=f"Pack {pack_id} not found")
+    
+    if not pack.install_path:
+        raise HTTPException(status_code=400, detail=f"Pack {pack_id} has no install path")
+    
+    # Run pack interactively (MVP)
+    pack_dir = Path(pack.install_path)
+    try:
+        run_result = await run_pack_interactive(pack_id, pack_dir, user_input)
+        
+        return {
+            "status": "success",
+            "pack_id": pack_id,
+            "response": run_result.get("response", ""),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pack execution failed: {str(e)}")
