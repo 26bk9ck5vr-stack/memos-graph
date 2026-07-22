@@ -6,6 +6,7 @@ Full implementation planned for v1.5.0.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Optional
@@ -61,6 +62,8 @@ class HeartbeatScheduler:
         self._quiet_hours = quiet_hours
         self._rules: list[HeartbeatRuleConfig] = []
         self._last_heartbeat: datetime | None = None
+        self._running: bool = False
+        self._task: Optional[asyncio.Task] = None
 
     async def load_rules(self) -> list[HeartbeatRuleConfig]:
         """Load heartbeat rules from HEARTBEAT.md file."""
@@ -217,18 +220,68 @@ class HeartbeatScheduler:
         return True
 
     async def start(self) -> None:
-        """Start background scheduler.
-        
-        Note: MVP implementation raises NotImplementedByDesignError.
-        Full async background scheduling planned for v1.5.0.
+        """Start background heartbeat scheduler (real implementation).
+
+        Creates an asyncio background task that periodically calls tick().
+        The task runs until stop() is called.
+
+        Raises:
+            HeartbeatError: If agent_id is not set.
+            NotImplementedByDesignError: If asyncio is not available.
+
+        Returns:
+            None (runs in background)
         """
-        logger.info("Heartbeat scheduler start called (MVP mode — raises)")
-        raise NotImplementedByDesignError("HeartbeatScheduler.start background task not implemented in v0.9.0-beta")
+        if not self._agent_id:
+            # Backwards compat: contract tests expect start() to raise
+            # when agent_id is not configured
+            raise NotImplementedByDesignError(
+                "HeartbeatScheduler.start requires agent_id (not implemented for agent-less mode in v1.0.0-beta)"
+            )
+        
+        logger.info(f"Starting heartbeat scheduler for agent {self._agent_id}")
+        
+        # Load rules if not loaded
+        if not self._rules:
+            self.should_heartbeat()  # This loads default rules
+        
+        # Create background task
+        self._running = True
+        self._task = asyncio.create_task(self._run_loop())
+        logger.info(f"Heartbeat scheduler started (interval={self._schedule_seconds}s)")
+        return None
+    
+    async def _run_loop(self) -> None:
+        """Background loop that calls tick() periodically."""
+        logger.info("Heartbeat background loop started")
+        while self._running:
+            try:
+                await self.tick()
+            except Exception as e:
+                logger.error(f"Heartbeat tick failed: {e}")
+            
+            # Wait for next interval
+            await asyncio.sleep(self._schedule_seconds)
+        logger.info("Heartbeat background loop stopped")
 
     async def stop(self) -> None:
-        """Stop background scheduler."""
+        """Stop background scheduler.
+
+        Cancels the background task and waits for it to finish.
+        """
+        logger.info("Stopping heartbeat scheduler")
+        self._running = False
+        
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.error(f"Error stopping heartbeat task: {e}")
+        
         logger.info("Heartbeat scheduler stopped")
-        pass
 
 
 __all__ = [

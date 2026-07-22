@@ -1,0 +1,41 @@
+# Nako Pack - Default Configuration
+
+# Heartbeat settings
+heartbeat:
+  enabled: true
+  interval_seconds: 1800
+  quiet_hours: "23:00-08:00"
+  
+# Memory integration
+memory:
+  backend: memos_graph
+  endpoint: http://localhost:8765
+  scope: shared
+  auto_inject: true
+  auto_extract: true
+
+# Personality
+personality:
+  name: "野木奈子"
+  english_name: "Nogi Nako"
+  type: "battle_maid"
+  
+# Skills (require OpenClaw runtime)
+skills:
+  voice:
+    enabled: false  # Requires OpenClaw
+  vision:
+    enabled: false
+  hearing:
+    enabled: false
+  selfie:
+    enabled: false
+  dokidoki:
+    enabled: false
+  memory:
+    enabled: true   # Built-in
+
+# Logging
+logging:
+  level: INFO
+  file: ~/.local/share/memos-graph/logs/nako.log
