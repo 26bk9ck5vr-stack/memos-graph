@@ -206,3 +206,85 @@ class ToolLog(Base):
     success = Column(Boolean, default=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class Relationship(Base):
+    """User↔Agent relationship (v2 core - Nako story)."""
+    __tablename__ = "relationships"
+
+    id = Column(BigInteger, primary_key=True)
+    user_id = Column(String, nullable=False, index=True)
+    agent_id = Column(String, nullable=False, index=True)
+    stage = Column(Integer, default=1, index=True)  # 1-5: stranger → friend → partner
+    affinity = Column(Float, default=0.0)  # -1.0 to 1.0
+    trust = Column(Float, default=0.0)  # 0.0 to 1.0
+    metadata_ = Column("metadata", JSONB, default=dict)
+    last_interaction_at = Column(DateTime)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "agent_id", name="uq_relationship_user_agent"),
+        Index("idx_relationships_stage", "stage"),
+    )
+
+
+class ChunkEdge(Base):
+    """Entity co-occurrence within chunks (Nako knowledge graph)."""
+    __tablename__ = "chunk_edges"
+
+    chunk_id = Column(BigInteger, ForeignKey("chunks.id", ondelete="CASCADE"), primary_key=True)
+    entity_id_1 = Column(BigInteger, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True)
+    entity_id_2 = Column(BigInteger, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True)
+    edge_type = Column(String, nullable=False)  # co-occur, related, etc.
+    weight = Column(Float, default=1.0)
+    metadata_ = Column("metadata", JSONB, default=dict)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("idx_chunk_edges_entity1", "entity_id_1"),
+        Index("idx_chunk_edges_entity2", "entity_id_2"),
+    )
+
+
+class Skill(Base):
+    """Agent skill (v1 feature)."""
+    __tablename__ = "skills"
+
+    id = Column(BigInteger, primary_key=True)
+    agent_id = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    level = Column(Integer, default=1)  # 1-10
+    metadata_ = Column("metadata", JSONB, default=dict)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "name", name="uq_skill_agent_name"),
+        Index("idx_skills_agent", "agent_id"),
+    )
+
+
+class TaskSummary(Base):
+    """Task completion summary (v1 feature)."""
+    __tablename__ = "task_summaries"
+
+    id = Column(BigInteger, primary_key=True)
+    agent_id = Column(String, nullable=False, index=True)
+    task_id = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    summary = Column(Text, nullable=False)
+    status = Column(String, default="completed", index=True)  # completed, failed, cancelled
+    metadata_ = Column("metadata", JSONB, default=dict)
+    completed_at = Column(DateTime)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "task_id", name="uq_task_agent_task"),
+        Index("idx_task_summaries_agent", "agent_id"),
+    )

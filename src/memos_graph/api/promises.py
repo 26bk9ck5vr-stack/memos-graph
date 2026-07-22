@@ -1,8 +1,8 @@
 """Promises endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
-from typing import Optional, Any
+from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from memos_graph.db.session import get_session
@@ -49,21 +49,37 @@ async def create_promise(
         user_id=promise.user_id,
         content=promise.content,
         deadline=promise.deadline,
+        status="open",
     )
     session.add(promise_model)
     await session.commit()
     await session.refresh(promise_model)
+    return promise_model
 
-    return PromiseResponse(
-        id=promise_model.id,
-        agent_id=promise_model.agent_id,
-        user_id=promise_model.user_id,
-        content=promise_model.content,
-        status=promise_model.status,
-        deadline=promise_model.deadline,
-        fulfilled_at=promise_model.fulfilled_at,
-        created_at=promise_model.created_at,
-    )
+
+@router.put("/promises/{promise_id}", response_model=PromiseResponse)
+async def update_promise(
+    promise_id: int,
+    update: PromiseUpdate,
+    session: AsyncSession = Depends(get_session),
+):
+    """Update a promise (mark as fulfilled/broken)."""
+    result = await session.execute(select(Promise).where(Promise.id == promise_id))
+    promise_model = result.scalar_one_or_none()
+    
+    if not promise_model:
+        raise HTTPException(status_code=404, detail="Promise not found")
+    
+    if update.status is not None:
+        promise_model.status = update.status
+        if update.status == "fulfilled" and update.fulfilled_at is None:
+            promise_model.fulfilled_at = datetime.utcnow()
+        elif update.fulfilled_at is not None:
+            promise_model.fulfilled_at = update.fulfilled_at
+    
+    await session.commit()
+    await session.refresh(promise_model)
+    return promise_model
 
 
 @router.get("/promises", response_model=list[PromiseResponse])
@@ -74,15 +90,15 @@ async def list_promises(
 ):
     """List promises with optional filtering."""
     query = select(Promise)
-
+    
     if agent_id:
         query = query.where(Promise.agent_id == agent_id)
     if status:
         query = query.where(Promise.status == status)
-
+    
     result = await session.execute(query)
     promises = result.scalars().all()
-
+    
     return [
         PromiseResponse(
             id=p.id,
@@ -96,40 +112,3 @@ async def list_promises(
         )
         for p in promises
     ]
-
-
-@router.put("/promises/{promise_id}", response_model=PromiseResponse)
-async def update_promise(
-    promise_id: int,
-    update: PromiseUpdate,
-    session: AsyncSession = Depends(get_session),
-):
-    """Update a promise."""
-    result = await session.execute(
-        select(Promise).where(Promise.id == promise_id)
-    )
-    promise = result.scalar_one_or_none()
-
-    if not promise:
-        raise HTTPException(status_code=404, detail="Promise not found")
-
-    if update.status is not None:
-        promise.status = update.status
-        if update.status == "fulfilled" and promise.fulfilled_at is None:
-            promise.fulfilled_at = datetime.utcnow()
-    if update.fulfilled_at is not None:
-        promise.fulfilled_at = update.fulfilled_at
-
-    await session.commit()
-    await session.refresh(promise)
-
-    return PromiseResponse(
-        id=promise.id,
-        agent_id=promise.agent_id,
-        user_id=promise.user_id,
-        content=promise.content,
-        status=promise.status,
-        deadline=promise.deadline,
-        fulfilled_at=promise.fulfilled_at,
-        created_at=promise.created_at,
-    )
