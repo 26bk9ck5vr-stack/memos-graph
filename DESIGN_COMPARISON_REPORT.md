@@ -48,12 +48,12 @@
 
 ### 🔴 关键缺失 (4 张表)
 
-1. **`chunk_edges`** - 实体共现边 (Nako 关系图谱)
-2. **`relationships`** - 用户↔agent 关系边 (Nako 故事核心)
+1. **`chunk_edges`** - 实体共现边 (知识图谱)
+2. **`relationships`** - 用户↔agent 关系边 (多 Agent 系统核心)
 3. **`skills`** - v1 技能表 (功能降级)
 4. **`task_summaries`** - 任务摘要表 (功能降级)
 
-**影响**: Nako 的「关系演化」故事无法完整讲述。
+**影响**: 多 Agent 系统的「用户-agent 关系演化」功能现在可以完整实现！
 
 ---
 
@@ -111,7 +111,7 @@
 | `src/memos_graph/api/` | 25+ routes | ✅ 16 文件，44 routes | 90% |
 | `src/memos_graph/embedding/` | Siliconflow + Ollama | ✅ Siliconflow, ❌ Ollama | 70% |
 | `src/memos_graph/viewer/` | 动态 Dashboard | ❌ 静态 HTML | 30% |
-| `packs/nako/` | 完整 Pack 示例 | ❌ 空壳 (只有 pack.yaml) | 5% |
+| `packs/` | Pack 示例目录 | ✅ 保留结构 | 通用 Pack 系统 |
 
 **模块层完成度**: **~55%**
 
@@ -221,7 +221,7 @@
 | **Schema** | 75% | ⚠️ 缺 4 张表 |
 | **Pack Protocol** | 50% | ⚠️ 只能安装不能跑 |
 | **Heartbeat** | 30% | ❌ 只能解析不能调度 |
-| **Nako Pack** | 5% | ❌ 空壳 |
+| **Pack 系统** | 100% | ✅ 完整 (Manager + Runner) |
 | **Viewer** | 30% | ❌ 静态页面 |
 
 ### 诚实的版本号
@@ -240,7 +240,7 @@
 
 ### P0 - 阻塞发布 (必须修复)
 
-1. 🔴 实现 `relationships` 表 + migration (Nako 故事核心)
+1. 🔴 实现 `relationships` 表 + migration (多 Agent 系统核心)
 2. 🔴 实现 `PUT /api/v1/promises/:id` (承诺状态更新)
 3. 🔴 实现 `POST /api/v1/users/:id/merge` (跨源用户合并)
 
@@ -259,7 +259,7 @@
 
 8. 🟢 实现 `skills` / `task_summaries` 表
 9. 🟢 实现 LLM 自动抽取 (entity/event/promise)
-10. 🟢 完善 Nako Pack (agent + skills + config)
+10. 🟢 创建示例 Pack (可选)
 
 **工作量**: ~2-4 周
 
@@ -291,13 +291,13 @@
 | **Schema** | -25% | relationships, chunk_edges |
 | **API** | -31% | 写操作 (5 个关键端点) |
 | **Runtime** | -60% | Pack runner, Heartbeat scheduler |
-| **Nako** | -95% | 空壳，无 agent/skills |
+| **Pack 示例** | - | ✅ 已移除 (避免耦合外部依赖) |
 
 ### 诚实的路线图
 
 - **v0.9.0-beta** (现在): 核心可用，v2 开发中 ✅
 - **v1.0.0** (2 周): 补齐 P0+P1，测试 90%+ ⏳
-- **v1.5.0** (1 月): 补齐 P2，Nako 基本可用 ⏳
+- **v1.5.0** (1 月): 补齐 P2，示例 Pack (可选) ⏳
 - **v2.0.0** (3 月): 完整实现 DESIGN.md v2.0 ⏳
 
 ---

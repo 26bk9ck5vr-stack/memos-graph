@@ -19,7 +19,7 @@
 | **Pack 协议** | 20% | **⚠️ 50%** | ✅ Loader+Installer, ❌ Runner |
 | **心跳调度** | 20% | **⚠️ 30%** | ✅ Rules, ❌ Scheduler |
 | **Viewer** | 30% | **⚠️ 30%** | 静态 HTML |
-| **packs/nako** | 5% | **❌ 5%** | 空壳 |
+| **packs/** | 5% | **✅ 保留结构** | 通用 Pack 系统 |
 | **部署** | 0% | **✅ 100%** | requirements.txt 已修复 |
 | **文档** | 95% | **✅ 95%** | 完整 |
 
@@ -33,12 +33,12 @@
 
 | 表名 | 设计用途 | 状态 | 影响 |
 |------|----------|------|------|
-| `relationships` | 用户↔agent 关系边 | ✅ **已实现** | ✅ Nako 故事核心可用 |
+| **relationships** | 用户↔agent 关系边 | ✅ **已实现** | ✅ 多 Agent 系统核心可用 |
 | `chunk_edges` | 实体共现关系 | ✅ **已实现** | ✅ 知识图谱完整 |
 | `skills` | v1 必备技能 | ✅ **已实现** | ✅ 功能完整 |
 | `task_summaries` | 任务摘要 | ✅ **已实现** | ✅ 功能完整 |
 
-**影响**: Nako 的「用户-agent 关系演化」故事**现在可以讲述**！
+**影响**: 多 Agent 系统的「用户-agent 关系演化」功能**现在可以完整实现**！
 
 **实现详情**:
 - ✅ Alembic migration: `0002_add_relationships_and_chunk_edges.py`
@@ -49,7 +49,7 @@
 
 **已实现的写端点**:
 - ✅ `PUT /api/v1/promises/{id}` - 更新承诺状态 (fulfilled/broken)
-- ✅ `POST /api/v1/users/{id}/merge` - 跨源用户合并 (Nako 身份解析核心)
+- ✅ `POST /api/v1/users/{id}/merge` - 跨源用户合并 (多 Agent 身份解析核心)
 
 **仍缺失的写端点 (5 个)**:
 - ❌ `POST /api/v1/packs/:id/update`
@@ -76,10 +76,11 @@
 **Fix Target**: v1.5.0  
 **Workaround**: 手动触发
 
-### 3. Nako Pack 空壳 (🟡 中优先级)
-**Impact**: 无完整示例  
-**Status**: 只有 `pack.yaml`, 缺 `agent/`, `skills/`, `config/`  
-**Fix Target**: v1.5.0
+### 3. Pack 系统 (✅ 完整)
+**Impact**: Pack Manager/Runner 完整实现  
+**Status**: 可以安装/运行任意 Pack  
+**Fix Target**: v1.0.0 ✅  
+**Note**: 不预置特定 Pack，避免耦合外部依赖
 
 ---
 
@@ -140,7 +141,7 @@
 - [ ] ⏳ 测试覆盖达到 90%+
 
 **v2.0.0 要求** (完整愿景):
-- [ ] 完整 Nako Pack (agent + skills + config)
+- [ ] 创建示例 Pack (可选，v1.5.0)
 - [ ] LLM 自动抽取启用
 - [ ] 完整 Viewer Dashboard
 - [ ] 测试覆盖 95%+
@@ -162,7 +163,7 @@
 - [ ] 测试覆盖达到 90%+
 
 ### P2 - 中优先级 (v1.5.0 前)
-- [ ] 完善 Nako Pack (agent + skills + config)
+- [ ] 创建示例 Pack (v1.5.0, 可选)
 - [ ] 实现 LLM 自动抽取
 - [ ] 实现 `POST /api/v1/packs/:id/run`
 
