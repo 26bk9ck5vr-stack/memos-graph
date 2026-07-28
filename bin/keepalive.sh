@@ -56,7 +56,8 @@ send_alert() {
 
 # ==================== 进程守护 ====================
 get_process_pid() {
-    pgrep -f "memos_graph.server:create_app" 2>/dev/null || echo ""
+    # 查找 uvicorn 进程（排除 bash 包装器）
+    pgrep -f "python.*uvicorn.*memos_graph" 2>/dev/null | head -1 || echo ""
 }
 
 is_process_alive() {
