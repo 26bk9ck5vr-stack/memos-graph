@@ -23,10 +23,11 @@ Usage:
     results = await engine.retrieve(request)
 """
 
-from __future__ import annotations
+"""Retrieve Engine v3.0 - Integrated recall with MoE, emotion, FSRS, and graph."""
 
+import time
 import logging
-import random
+from typing import List, Optional
 from datetime import datetime
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
@@ -36,7 +37,9 @@ from memos_graph.emotion.types import EmotionalState, EmotionType
 from memos_graph.emotion.analyzer import EmotionAnalyzer
 from memos_graph.forgetting.fsrs import FSRSForgetting, MemoryStability
 from memos_graph.recall import RecallEngine, RecallRequest, RecallHit
-from memos_graph.db.session import _async_session_factory
+from memos_graph.db.models import Chunk, EntityEdge
+from memos_graph.db.session import create_session_factory
+from sqlalchemy import select, func
 
 logger = logging.getLogger(__name__)
 
@@ -156,14 +159,10 @@ class RetrieveEngineV3:
         self.embedding = embedding_service
         self.llm = llm_client
         
-        # Session factory - use global or create new
-        global _async_session_factory
-        if _async_session_factory is None:
-            # Initialize the global factory
-            from memos_graph.db.session import create_session_factory
-            create_session_factory(db_url)
-        
-        self._async_session = _async_session_factory
+        # Initialize session factory
+        from memos_graph.db.session import create_session_factory
+        _, session_factory = create_session_factory(db_url)
+        self._async_session = session_factory
         
         # Initialize components
         self.router = router or MoERouter(embedding_service, llm_client, mode="hybrid")
