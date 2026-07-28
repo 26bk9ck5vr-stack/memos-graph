@@ -36,6 +36,7 @@ from memos_graph.emotion.types import EmotionalState, EmotionType
 from memos_graph.emotion.analyzer import EmotionAnalyzer
 from memos_graph.forgetting.fsrs import FSRSForgetting, MemoryStability
 from memos_graph.recall import RecallEngine, RecallRequest, RecallHit
+from memos_graph.db.session import _async_session_factory
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +155,15 @@ class RetrieveEngineV3:
         self.db_url = db_url
         self.embedding = embedding_service
         self.llm = llm_client
+        
+        # Session factory - use global or create new
+        global _async_session_factory
+        if _async_session_factory is None:
+            # Initialize the global factory
+            from memos_graph.db.session import create_session_factory
+            create_session_factory(db_url)
+        
+        self._async_session = _async_session_factory
         
         # Initialize components
         self.router = router or MoERouter(embedding_service, llm_client, mode="hybrid")
@@ -303,13 +313,13 @@ class RetrieveEngineV3:
         
         return result
     
-    async def _graph_traverse(
+    async def _graph_traversal(
         self,
         seeds: List[RecallHit],
         hops: int = 2,
         per_node: int = 5
     ) -> List[RecallHit]:
-        """Graph traversal from seed hits.
+        """Graph traversal from seed hits using entity_edges table.
         
         Args:
             seeds: Seed hits to start traversal from
@@ -317,12 +327,64 @@ class RetrieveEngineV3:
             per_node: Nodes to retrieve per hop
         
         Returns:
-            Expanded list of hits
+            Expanded list of hits with graph neighbors
         """
-        # TODO: Implement graph traversal using entity_edges table
-        # For now, return seeds unchanged
-        logger.debug(f"Graph traversal (placeholder): {len(seeds)} seeds, {hops} hops")
-        return seeds
+        if not seeds:
+            return []
+        
+        async with self._async_session() as session:
+            # Collect unique chunk_ids from seeds
+            chunk_ids = list(set(hit.chunk_id for hit in seeds if hit.chunk_id))
+            
+            if not chunk_ids:
+                logger.debug("Graph traversal: No chunk IDs in seeds")
+                return seeds
+            
+            # Query entity_edges connected to these chunks
+            # Join with chunks to get the actual content
+            from memos_graph.db.models import Chunk, EntityEdge, Entity
+            
+            query = (
+                select(Chunk, EntityEdge)
+                .join(EntityEdge, EntityEdge.chunk_id == Chunk.id)
+                .where(Chunk.id.in_(chunk_ids))
+                .limit(hops * per_node * len(chunk_ids))
+            )
+            
+            result = await session.execute(query)
+            rows = result.all()
+            
+            if not rows:
+                logger.debug(f"Graph traversal: No entity edges found for {len(chunk_ids)} chunks")
+                return seeds
+            
+            # Create RecallHit from graph neighbors
+            expanded_hits = []
+            seen_chunk_ids = set(chunk_ids)  # Already have these
+            
+            for chunk, edge in rows:
+                if chunk.id not in seen_chunk_ids:
+                    seen_chunk_ids.add(chunk.id)
+                    
+                    # Create a minimal RecallHit for the neighbor
+                    neighbor_hit = RecallHit(
+                        chunk_id=chunk.id,
+                        content=chunk.content[:200] + "..." if len(chunk.content) > 200 else chunk.content,
+                        score=edge.weight if edge.weight else 0.5,
+                        final_score=edge.weight if edge.weight else 0.5,
+                        metadata={
+                            "edge_type": edge.edge_type,
+                            "entity_id_1": edge.entity_id_1,
+                            "entity_id_2": edge.entity_id_2,
+                            "graph_hops": hops,
+                        }
+                    )
+                    expanded_hits.append(neighbor_hit)
+            
+            logger.info(f"Graph traversal: {len(seeds)} seeds → {len(expanded_hits)} neighbors ({hops} hops)")
+            
+            # Return original seeds + expanded neighbors
+            return seeds + expanded_hits
     
     def _apply_emotion_weight(
         self,
