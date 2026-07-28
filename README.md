@@ -141,7 +141,7 @@ result = await engine.retrieve(request)
 ```
 
 **Recall pipeline**:
-1. MoE routing → 2. 3-path recall (FTS + Pattern + Time) → 3. Graph traversal → 4. Emotion weighting → 5. Forgetting filter → 6. PTSD check
+1. MoE routing → 2. 3-path recall (FTS + Pattern + Time) → 3. Graph traversal (entity_edges) → 4. Emotion weighting → 5. Forgetting filter → 6. PTSD check
 
 *Note: RRF fusion, LLM rerank, and MMR are planned for v3.1*
 
@@ -194,15 +194,14 @@ python3 -m pytest tests/ -v --ignore=tests/test_heartbeat.py
 - ✅ MoE routing (CentroidRouter + LLMRouter) - **23 tests pass**
 - ✅ Emotion system (6 emotions + TTS) - **26 tests pass**
 - ✅ FSRS forgetting curve - **28 tests pass**
-- ✅ Integrated recall (basic pipeline) - **14 tests pass**
+- ✅ Integrated recall (with graph traversal) - **14 tests pass**
 - ⚠️ PTSD flashback (1% probability) - **tests pending**
 
 ### v3.1.0 (Next)
-- [ ] Automatic domain evolution (clustering, merging, splitting) - *placeholder in v3.0*
-- [ ] Full graph traversal implementation - *placeholder in v3.0*
+- [ ] Automatic domain evolution (clustering, merging, splitting)
+- [ ] RRF fusion for multi-path recall
 - [ ] LLM rerank + MMR diversity
 - [ ] Performance optimization (FAISS acceleration)
-
 ### v3.2.0 (Future)
 - [ ] Multimodal emotion (image, audio)
 - [ ] Long-term memory consolidation
@@ -215,7 +214,7 @@ python3 -m pytest tests/ -v --ignore=tests/test_heartbeat.py
 memos-graph v3.0 introduces **industry-first** features:
 
 1. **MoE + Emotion Integration**: Emotion-aware domain routing
-2. **FSRS + Graph Traversal**: Natural forgetting with graph expansion
+2. **FSRS + Graph Traversal**: Natural forgetting with real graph expansion via entity_edges
 3. **PTSD + Emotion Consistency**: Trauma simulation with emotional coherence
 4. **Simplified Design**: 9 emotions → 6, reducing complexity while maintaining expressiveness
 
