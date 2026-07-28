@@ -14,7 +14,7 @@ neo4j:
 # LLM 配置 - SiliconFlow Qwen3-8B
 llm:
   base_url: https://api.siliconflow.cn/v1
-  api_key: sk-vsnwcxvhpnzsklcexqfxqaidfvugpdthmxufloibfktmkxbx
+  api_key: ${SILICONFLOW_API_KEY}  # 从环境变量加载
   model: Qwen/Qwen3-8B
   timeout_seconds: 30
 
@@ -22,16 +22,16 @@ llm:
 embedding:
   provider: siliconflow
   base_url: https://api.siliconflow.cn/v1
-  api_key: sk-vsnwcxvhpnzsklcexqfxqaidfvugpdthmxufloibfktmkxbx
+  api_key: ${SILICONFLOW_API_KEY}  # 从环境变量加载
   model: BAAI/bge-m3
   dimension: 1024
   timeout_seconds: 30
 
 # Reranker 配置 - SiliconFlow BAAI/bge-reranker-v2-m3 (v3.1 使用)
-reranker:
+rerank:
   provider: siliconflow
   base_url: https://api.siliconflow.cn/v1/rerank
-  api_key: sk-vsnwcxvhpnzsklcexqfxqaidfvugpdthmxufloibfktmkxbx
+  api_key: ${SILICONFLOW_API_KEY}  # 从环境变量加载
   model: BAAI/bge-reranker-v2-m3
   timeout_seconds: 30
   enabled: false  # v3.1 才使用
