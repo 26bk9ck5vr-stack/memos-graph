@@ -1,4 +1,4 @@
-"""memos-graph embedding layer — v0.2.0 siliconflow 实装。
+"""memos-graph embedding layer — v3.0 siliconflow implementation.
 
 T6.1-T6.5 实装：siliconflow provider (BAAI/bge-m3 1024 维)。
 """
