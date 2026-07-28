@@ -1,0 +1,44 @@
+[Unit]
+Description=memos-graph v3.0 - AI Memory Engine
+Documentation=https://github.com/26bk9ck5vr-stack/memos-graph
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=gato
+Group=gato
+WorkingDirectory=/home/gato/memos-graph
+
+# 环境变量
+Environment="PATH=/home/gato/memos-graph/.venv/bin:/usr/local/bin:/usr/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="MEMOS_ALERT_WEBHOOK=${MEMOS_ALERT_WEBHOOK:-}"
+Environment="MEMOS_ALERT_ENABLED=${MEMOS_ALERT_ENABLED:-false}"
+
+# 启动命令
+ExecStart=/home/gato/memos-graph/bin/keepalive.sh run
+Restart=always
+RestartSec=10
+
+# 资源限制
+LimitNOFILE=65535
+LimitNPROC=4096
+
+# 日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=memos-graph
+
+# 看门狗
+WatchdogSec=300
+NotifyAccess=all
+
+# 安全加固
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/gato/memos-graph/logs /backup/memos-graph
+
+[Install]
+WantedBy=multi-user.target

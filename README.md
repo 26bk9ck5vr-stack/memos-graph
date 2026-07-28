@@ -155,6 +155,68 @@ PYTHONPATH=src python3 -m pytest tests/ -v
 
 ---
 
+## 🛡️ Auto-Keepalive System
+
+memos-graph includes a **fully automated keepalive system** with zero manual intervention:
+
+### Features ✅
+
+- **Process Guardian**: Auto-restart on crash (max 5 times/5min)
+- **Health Monitoring**: Auto-restart on health check failure
+- **Auto Backup**: Daily database backup at 03:00 (7-day retention)
+- **Log Rotation**: Weekly log rotation on Sunday 04:00
+- **Resource Monitoring**: CPU/Memory/Disk monitoring with alerts
+- **Auto Recovery**: Self-healing without manual intervention
+- **Boot Startup**: Auto-start on system boot
+
+### Installation
+
+```bash
+# One-click install (requires sudo)
+sudo ./deploy/install-keepalive.sh
+
+# Manual start
+./bin/keepalive.sh run
+
+# Check status
+./bin/keepalive.sh status
+
+# Manual backup
+./bin/keepalive.sh backup
+```
+
+### Configuration (Optional)
+
+Enable alerts by setting environment variables in systemd service:
+
+```bash
+# Edit service file
+sudo nano /etc/systemd/system/memos-graph.service
+
+# Add environment variables
+Environment="MEMOS_ALERT_WEBHOOK=your-webhook-url"
+Environment="MEMOS_ALERT_ENABLED=true"
+
+# Reload and restart
+sudo systemctl daemon-reload
+sudo systemctl restart memos-graph
+```
+
+### Monitoring
+
+```bash
+# View logs
+sudo journalctl -u memos-graph -f
+
+# View keepalive logs
+tail -f logs/keepalive.log
+
+# Check backup
+ls -lh /backup/memos-graph/
+```
+
+---
+
 ## 🏗️ Architecture
 
 ```
