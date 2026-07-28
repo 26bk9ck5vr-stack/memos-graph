@@ -201,9 +201,13 @@ class TestPackContract:
 
     def test_pack_manager_packs_dir_default(self):
         from memos_graph.pack import PackManager
+        from pathlib import Path
         m = PackManager()
         # 默认 packs 目录是 ~/.local/share/memos-graph/packs
-        assert "memos-graph/packs" in str(m._packs_dir)
+        # 使用跨平台检查：目录名应该包含 memos-graph/packs
+        packs_dir = Path(m._packs_dir)
+        assert packs_dir.name == "packs"
+        assert packs_dir.parent.name == "memos-graph"
 
     @pytest.mark.xfail(raises=Exception, reason="v0.1 占位 — T11.2 实装")
     @pytest.mark.asyncio

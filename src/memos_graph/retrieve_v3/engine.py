@@ -239,10 +239,11 @@ class RetrieveEngineV3:
         hits = base_result.hits
         logger.debug(f"Base recall: {len(hits)} hits")
         
-        # Step 3: Graph traversal (optional)
+        # Step 4: Graph traversal (if enabled)
         if request.use_graph and hits:
+            start = time.time()
             initial_count = len(hits)
-            hits = await self._graph_traverse(
+            hits = await self._graph_traversal(
                 hits,
                 hops=request.graph_hops,
                 per_node=request.graph_per_node
