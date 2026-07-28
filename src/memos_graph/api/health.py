@@ -20,52 +20,62 @@ async def readiness_check(
 ):
     """Readiness check - verifies DB and LLM connectivity."""
     from memos_graph.config import load_config
+    from sqlalchemy import text
 
     config = load_config()
 
     # Check database
     try:
-        await session.execute("SELECT 1")
+        await session.execute(text("SELECT 1"))
         db_status = "connected"
     except Exception as e:
         db_status = f"error: {str(e)}"
 
-    # Check LLM
+    # Check LLM (SiliconFlow doesn't have /health endpoint, test with embeddings)
     llm_status = "unknown"
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{config.llm.base_url}/health",
+            resp = await client.post(
+                f"{config.llm.base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {config.llm.api_key}"},
+                json={"model": config.llm.model, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1},
                 timeout=5.0,
             )
-            if resp.status_code == 200:
-                llm_status = "connected"
+            if resp.status_code in [200, 401]:  # 401 means API key issue but server is up
+                llm_status = "connected" if resp.status_code == 200 else f"auth_error: {resp.status_code}"
             else:
                 llm_status = f"error: HTTP {resp.status_code}"
     except Exception as e:
         llm_status = f"error: {str(e)}"
 
-    # Check Ollama (embedding)
-    ollama_status = "unknown"
+    # Check Embedding (SiliconFlow or Ollama)
+    embedding_status = "unknown"
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{config.embedding.base_url}/api/tags",
-                timeout=5.0,
-            )
-            if resp.status_code == 200:
-                ollama_status = "connected"
+            if "siliconflow" in config.embedding.base_url:
+                resp = await client.post(
+                    f"{config.embedding.base_url}/embeddings",
+                    headers={"Authorization": f"Bearer {config.embedding.api_key}"},
+                    json={"model": config.embedding.model, "input": "test"},
+                    timeout=5.0,
+                )
             else:
-                ollama_status = f"error: HTTP {resp.status_code}"
+                resp = await client.get(
+                    f"{config.embedding.base_url}/api/tags",
+                    timeout=5.0,
+                )
+            if resp.status_code in [200, 401]:
+                embedding_status = "connected" if resp.status_code == 200 else f"auth_error: {resp.status_code}"
+            else:
+                embedding_status = f"error: HTTP {resp.status_code}"
     except Exception as e:
-        ollama_status = f"error: {str(e)}"
+        embedding_status = f"error: {str(e)}"
 
-    all_healthy = db_status == "connected" and ollama_status == "connected"
+    all_healthy = db_status == "connected" and embedding_status == "connected"
 
     return {
         "status": "ready" if all_healthy else "not_ready",
         "database": db_status,
         "llm": llm_status,
-        "ollama": ollama_status,
+        "embedding": embedding_status,
     }
