@@ -21,6 +21,7 @@ from sqlalchemy.orm import selectinload
 
 from memos_graph.db.session import _async_session_factory
 from memos_graph.db.models import Chunk, ChunkVector, EntityEdge, Entity
+from memos_graph.embedding import NotImplementedByDesignError, EmbeddingService
 
 # Session factory for recall engine — uses the same global factory as db.session
 def _get_factory():

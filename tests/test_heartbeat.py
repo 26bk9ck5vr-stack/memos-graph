@@ -5,16 +5,14 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from memos_graph.heartbeat.scheduler import (
-    HeartbeatScheduler,
+from memos_graph.heartbeat import (
     HeartbeatRule,
     HeartbeatStage,
-)
-from memos_graph.heartbeat.rules import (
     HeartbeatRuleConfig,
     parse_heartbeat_rules,
     _parse_thresholds,
 )
+from memos_graph.heartbeat.scheduler import HeartbeatScheduler
 
 
 class TestHeartbeatRule:
