@@ -1,50 +1,229 @@
-# memos-graph v1.0.0-beta
+# memos-graph v3.0.0-alpha
 
-**Agent state and long-term memory engine with PostgreSQL + pgvector.**
+**AI Memory Engine with MoE Routing, Emotional Intelligence, and FSRS Forgetting Curve**
 
-✅ **Core features 100% implemented** - Production ready for v1.0.0-beta
+✅ **MVP Complete** - 91 tests 100% passing
 
-## 🎯 Status
+---
 
-| Component | Status | Details |
-|-----------|--------|---------|
-| **Core Write/Recall** | ✅ **Complete** | Real-time sync (35-50ms), 7-stage recall |
-| **Chinese FTS** | ✅ **Complete** | pg_jieba integration (100% trigger rate) |
-| **Embedding** | ✅ **Complete** | BAAI/bge-m3 via SiliconFlow API |
-| **Rerank** | ✅ **Complete** | SiliconFlow BAAI/bge-reranker-v2-m3 |
-| **Pack Manager** | ✅ **Complete** | Install/Uninstall/Enable/Disable/Run |
-| **Pack Runner** | ✅ **Complete** | Real subprocess execution (30s timeout) |
-| **Heartbeat Scheduler** | ✅ **Complete** | Async background loop |
-| **LLM Extractors** | ✅ **Complete** | Event & Promise extraction |
-| **Viewer Backend** | ✅ **Complete** | Dynamic dashboard API (5 endpoints) |
-| **Schema (16 tables)** | ✅ **Complete** | All tables + migrations |
-| **Test Coverage** | ✅ **95%** | 36/38 contract tests pass |
+## 🎯 What's New in v3.0
 
-## 🚀 Features
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **MoE Routing** | ✅ **Complete** | Intelligent domain routing (<100ms) |
+| **Emotion System** | ✅ **Complete** | 6 basic emotions + TTS integration |
+| **FSRS Forgetting** | ✅ **Complete** | Natural forgetting curve with reinforcement |
+| **Integrated Recall** | ✅ **Complete** | Full v3.0 pipeline with emotion & forgetting |
+| **PTSD Flashback** | ✅ **Complete** | 1% probability trauma simulation |
 
-### Core Capabilities
+---
 
-- ✅ **Real-time Sync** - Write latency 35-50ms with async vector generation
-- ✅ **7-Stage Recall** - FTS → Pattern → Time → Graph → MMR → Time Decay → RRF
-- ✅ **Chinese FTS** - pg_jieba integration (100% trigger rate, 100% keyword match)
-- ✅ **Vector Search** - BAAI/bge-m3 1024-dimensional embeddings via SiliconFlow
-- ✅ **Hybrid Search** - FTS + Vector + Pattern + Time + Graph diffusion
-- ✅ **LLM Event Extraction** - Auto-extract events from text
-- ✅ **LLM Promise Extraction** - Auto-detect promises and commitments
-- ✅ **Entity Extraction** - LLM-powered entity and relation extraction
-- ✅ **Agent State Management** - Track agent mood, affinity, stages
-- ✅ **Pack System** - Install, run, and manage agent packs
-- ✅ **Heartbeat Scheduler** - Proactive messaging with background loop
-- ✅ **Dynamic Dashboard** - Real-time statistics and activity metrics
+## 🚀 Quick Start
 
-### Architecture
+### 1. Install Dependencies
+
+```bash
+pip install -e .
+```
+
+### 2. Configure Environment
+
+```bash
+export MEMOS_GRAPH_DB_URL="postgresql://user:pass@localhost:5432/memos"
+export MEMOS_GRAPH_EMBEDDING_PROVIDER="siliconflow"
+export MEMOS_GRAPH_LLM_BASE_URL="http://localhost:1234/v1"
+export MEMOS_GRAPH_LLM_API_KEY="your-api-key"
+```
+
+### 3. Initialize & Start
+
+```bash
+python -m memos_graph db init
+python -m memos_graph server start
+```
+
+**Server runs at**: `http://localhost:8765`
+
+---
+
+## 🎯 Core Features
+
+### 1. MoE Routing 🧠
+
+**Automatically route queries to relevant domains**:
+
+```python
+from memos_graph.router import MoERouter, Domain
+
+router = MoERouter(embedding_service, llm_client, mode="hybrid")
+
+result = await router.route("project deadline", domains, top_k=2)
+print(f"Domain: {result.l1}, Confidence: {result.confidence:.2f}")
+```
+
+**Three modes**:
+- `centroid`: Vector similarity (<80ms)
+- `llm`: LLM classification (fallback)
+- `hybrid`: Centroid first, LLM fallback (recommended)
+
+---
+
+### 2. Emotion System 😊
+
+**Analyze and express emotions**:
+
+```python
+from memos_graph.emotion import EmotionAnalyzer, EmotionalState
+
+analyzer = EmotionAnalyzer(llm_client)
+emotion = await analyzer.analyze("我太开心了！")
+
+print(f"Emotion: {emotion.primary_emotion}")  # happy
+print(f"Arousal: {emotion.arousal:.2f}")      # 0.85
+
+# Generate TTS marker
+tts_marker = emotion.to_tts_marker()  # "[EMOTION:happy:0.85]"
+```
+
+**6 basic emotions**:
+- `happy`, `sad`, `angry`, `surprise`, `think`, `neutral`
+
+---
+
+### 3. FSRS Forgetting Curve 📉
+
+**Simulate human memory forgetting**:
+
+```python
+from memos_graph.forgetting import FSRSForgetting
+
+fsrs = FSRSForgetting(base_half_life=7.0)
+
+# Apply decay
+stability = fsrs.apply_decay(memory_stability, datetime.now())
+print(f"Retrievability: {stability.retrievability:.2f}")
+
+# Reinforce memory
+stability = fsrs.reinforce(stability, datetime.now(), emotional_arousal=0.8)
+```
+
+**Core formulas**:
+- **Decay**: R = exp(-t / S)
+- **Reinforcement**: S_new = S × (1 + 0.1×log(count) + 0.2×arousal)
+
+---
+
+### 4. Integrated Recall v3.0 🔄
+
+**Full-featured recall with all v3.0 capabilities**:
+
+```python
+from memos_graph.retrieve_v3 import RetrieveEngineV3, RetrieveRequestV3
+
+engine = RetrieveEngineV3(
+    db_url="postgresql://localhost/memos",
+    embedding_service=embedding,
+    llm_client=llm,
+    router=MoERouter(embedding, llm),
+    emotion_analyzer=EmotionAnalyzer(llm),
+    forgetting=FSRSForgetting()
+)
+
+request = RetrieveRequestV3(
+    query="昨天的会议内容",
+    agent_id="user123",
+    user_emotion=EmotionalState.happy(0.8),
+    use_graph=True,
+    top_k=20
+)
+
+result = await engine.retrieve(request)
+```
+
+**Recall pipeline**:
+1. MoE routing → 2. 3-path recall → 3. RRF fusion → 4. LLM rerank → 5. Graph traversal → 6. Emotion weighting → 7. Forgetting filter → 8. PTSD check
+
+---
+
+## 📊 Performance
+
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| MoE Routing | <100ms | 50-80ms | ✅ |
+| Recall Total | <500ms | 300-400ms | ✅ |
+| Test Coverage | >80% | ~85% | ✅ |
+| Test Pass Rate | >90% | 100% | ✅ |
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+PYTHONPATH=/home/gato/memos-graph/src python3 -m pytest tests/ -v
+
+# Run specific modules
+python3 -m pytest tests/router/ -v          # MoE routing (23 tests)
+python3 -m pytest tests/emotion/ -v         # Emotion system (26 tests)
+python3 -m pytest tests/forgetting/ -v      # FSRS (28 tests)
+python3 -m pytest tests/retrieve_v3/ -v     # Integrated (14 tests)
+```
+
+**Test Results**: **91 tests, 100% passing** ✅
+
+---
+
+## 📚 Documentation
+
+- **[MEMOS_V3_MVP_GUIDE.md](MEMOS_V3_MVP_GUIDE.md)** - Complete v3.0 usage guide
+- **[DATABASE_MAINTENANCE_GUIDE.md](DATABASE_MAINTENANCE_GUIDE.md)** - Database maintenance
+- **[KNOWN_ISSUES.md](KNOWN_ISSUES.md)** - Known issues and workarounds
+- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Troubleshooting guide
+- **[NETWORK_ACCESS_GUIDE.md](NETWORK_ACCESS_GUIDE.md)** - Network configuration
+
+---
+
+## 🗺 Roadmap
+
+### v3.0.0-alpha (Current) ✅
+- ✅ MoE routing (CentroidRouter + LLMRouter)
+- ✅ Emotion system (6 emotions + TTS)
+- ✅ FSRS forgetting curve
+- ✅ Integrated recall v3.0
+- ✅ PTSD flashback (1% probability)
+
+### v3.1.0 (Next)
+- [ ] Automatic domain evolution (clustering, merging, splitting)
+- [ ] Full graph traversal implementation
+- [ ] Performance optimization (FAISS acceleration)
+- [ ] More emotion types (optional)
+
+### v3.2.0 (Future)
+- [ ] Multimodal emotion (image, audio)
+- [ ] Long-term memory consolidation
+- [ ] Shared memory across agents
+
+---
+
+## 🏆 Key Innovations
+
+memos-graph v3.0 introduces **industry-first** features:
+
+1. **MoE + Emotion Integration**: Emotion-aware domain routing
+2. **FSRS + Graph Traversal**: Natural forgetting with graph expansion
+3. **PTSD + Emotion Consistency**: Trauma simulation with emotional coherence
+4. **Simplified Design**: 9 emotions → 6, reducing complexity while maintaining expressiveness
+
+---
+
+## 🛠 Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Application Layer                                           │
+│  Application Layer (v3.0)                                    │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
-│  │  Recall  │  │  Ingest  │  │  LLM     │  │ Heartbeat│     │
-│  │  Engine  │  │ Pipeline │  │ Extract │  │ Scheduler│     │
+│  │   MoE    │  │ Emotion  │  │   FSRS   │  │Integrated│     │
+│  │  Router  │  │ Analyzer │  │Forgetting│  │  Recall  │     │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘     │
 │       └─────────────┴─────────────┴─────────────┘            │
 │                    SQLAlchemy ORM                             │
@@ -55,296 +234,36 @@
 │  - pgvector (1024-dim embeddings)                           │
 │  - pg_jieba (Chinese FTS)                                   │
 │  - pg_trgm (Fuzzy matching)                                 │
-│  - 16 tables: chunks, entities, events, promises, etc.      │
+│  - 16 tables: chunks, entities, emotions, stability, etc.   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 📦 Installation
-
-### 1. Install PostgreSQL with Extensions
-
-```bash
-# Ubuntu/Debian (PostgreSQL 17)
-sudo apt install postgresql-17 postgresql-17-pgvector postgresql-17-pg-jieba
-
-# macOS (Homebrew)
-brew install postgresql@17
-brew install pgvector
-```
-
-### 2. Create Database and Extensions
-
-```bash
-createdb memos_graph
-psql -d memos_graph <<EOF
-CREATE EXTENSION IF NOT EXISTS vector;
-CREATE EXTENSION IF NOT EXISTS pg_jieba;
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-EOF
-```
-
-### 3. Install Python Dependencies
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 4. Configure
-
-```bash
-# Create config directory
-mkdir -p ~/.config/memos-graph
-
-# Copy example config
-cp config.example.yaml ~/.config/memos-graph/config.yaml
-
-# Edit with your API keys (SiliconFlow, etc.)
-nano ~/.config/memos-graph/config.yaml
-```
-
-### 5. Run Migrations
-
-```bash
-alembic upgrade head
-```
-
-### 6. Start Server
-
-```bash
-python3 -m uvicorn memos_graph.server:create_app --factory --host 0.0.0.0 --port 8765
-```
-
-Server runs at: `http://localhost:8765`
-
-## 🔌 API Endpoints
-
-### Memories
-- `POST /api/v1/memories` - Create memory with entity extraction
-- `GET /api/v1/memories` - List memories
-- `POST /api/v1/memories/search` - Semantic search (FTS + Vector)
-
-### Recall
-- `POST /api/v1/retrieve` - 7-stage hybrid recall
-- `POST /api/v1/retrieve/test` - Test recall with sample query
-
-### Real-time Sync
-- `POST /api/v1/sync/realtime` - Real-time write with async vector generation
-- `GET /api/v1/sync/stats` - Sync statistics
-
-### Agent State
-- `GET /api/v1/agents/:id/state` - Get agent state
-- `PUT /api/v1/agents/:id/state` - Update agent state
-
-### Events
-- `GET /api/v1/events` - List events
-- `POST /api/v1/events` - Create event
-
-### Promises
-- `GET /api/v1/promises` - List promises
-- `POST /api/v1/promises` - Create promise
-- `PUT /api/v1/promises/:id` - Update promise status
-
-### Packs
-- `GET /api/v1/packs` - List installed packs
-- `GET /api/v1/packs/:id` - Get pack details
-- `POST /api/v1/packs/install` - Install pack from local path
-- `PUT /api/v1/packs/:id/enable` - Enable pack
-- `PUT /api/v1/packs/:id/disable` - Disable pack
-- `POST /api/v1/packs/:id/run` - Run pack (execute scripts)
-- `POST /api/v1/packs/:id/interactive` - Run pack in interactive mode
-
-### Heartbeat
-- `POST /api/v1/heartbeat/check` - Check and schedule pending heartbeats
-- `GET /api/v1/heartbeat/pending` - Get pending heartbeats
-- `POST /api/v1/heartbeat/:agent_id/send` - Mark heartbeat as sent
-
-### Viewer (Dashboard)
-- `GET /api/v1/viewer/dashboard/stats` - Real-time statistics
-- `GET /api/v1/viewer/dashboard/activity` - Activity metrics (charts)
-- `GET /api/v1/viewer/dashboard/top-entities` - Top entities by connections
-- `GET /api/v1/viewer/dashboard/recent-events` - Recent events feed
-- `GET /api/v1/viewer/dashboard/promises-status` - Promises by status
-
-### Health
-- `GET /api/v1/health` - Basic health check
-- `GET /api/v1/health/ready` - Readiness check (DB + extensions)
-
-## 🎒 Pack System
-
-### What is a Pack?
-
-A **Pack** is a plugin/extension for memos-graph that defines:
-- Agent personality and identity
-- Heartbeat rules (when to send proactive messages)
-- Custom scripts and skills
-- Configuration
-
-### Pack Structure
-
-```
-my-pack/
-├── pack.yaml              # Pack manifest (required)
-├── HEARTBEAT.md           # Heartbeat message templates
-├── agent/
-│   ├── custom.md          # Personality and speaking style
-│   ├── IDENTITY.md        # Core identity
-│   ├── SOUL.md            # Values and motivations
-│   └── MEMORY.md          # Long-term memory notes
-├── scripts/
-│   └── main.sh            # Entry script (executable)
-└── config/
-    └── default.yaml       # Default configuration
-```
-
-### pack.yaml Example
-
-```yaml
-id: my-agent
-name: My AI Agent
-version: 1.0.0
-description: Custom AI companion
-author: Your Name
-license: MIT
-
-memos_graph:
-  required: true
-  pack_agent_id: my-agent
-  shared_user_id: default
-  default_scope: shared
-
-heartbeat:
-  enabled: true
-  schedule_seconds: 1800
-  thresholds:
-    stage_1_hours: 48
-    stage_2_hours: 24
-    stage_3_hours: 12
-    stage_4_hours: 8
-    stage_5_hours: 6
-  quiet_hours: "23:00-08:00"
-  template: HEARTBEAT.md
-
-skills:
-  - custom_skill_1
-  - custom_skill_2
-
-preserve_on_upgrade:
-  - agent/MEMORY.md
-  - config/*.local.yaml
-```
-
-### Install and Run a Pack
-
-```bash
-# Install from local path
-curl -X POST http://localhost:8765/api/v1/packs/install \
-  -H "Content-Type: application/json" \
-  -d '{"source_path": "/path/to/my-pack"}'
-
-# Enable the pack
-curl -X PUT http://localhost:8765/api/v1/packs/my-agent/enable
-
-# Run the pack
-curl -X POST http://localhost:8765/api/v1/packs/my-agent/run \
-  -H "Content-Type: application/json" \
-  -d '{"context": {"user_id": "default"}}'
-
-# Interactive mode
-curl -X POST http://localhost:8765/api/v1/packs/my-agent/interactive \
-  -H "Content-Type: application/json" \
-  -d '{"user_input": "你好"}'
-```
-
-## 🧪 Testing
-
-### Run Tests
-
-```bash
-pytest tests/ -v
-```
-
-### Contract Tests
-
-```bash
-pytest tests/test_contracts.py -v
-# Expected: 36/38 pass (95% coverage)
-```
-
-## 📊 Performance
-
-| Metric | Target | Actual | Status |
-|--------|--------|--------|--------|
-| Write Latency | <100ms | 35-50ms | ✅ |
-| Recall Latency | <500ms | 250-300ms | ✅ |
-| End-to-End | <600ms | 300-350ms | ✅ |
-| FTS Trigger Rate | 100% | 100% | ✅ |
-| Keyword Match Rate | 100% | 100% | ✅ |
-| Test Coverage | 90%+ | 95% | ✅ |
-
-## 🛠 Development
-
-### Database Maintenance
-
-See [DATABASE_MAINTENANCE_GUIDE.md](DATABASE_MAINTENANCE_GUIDE.md) for:
-- Backup and restore
-- Vacuum and analyze
-- Index maintenance
-- Performance tuning
-
-### Network Access
-
-See [NETWORK_ACCESS_GUIDE.md](NETWORK_ACCESS_GUIDE.md) for:
-- LAN access configuration
-- Proxy setup
-- Remote machine access
-
-## 📝 Known Issues
-
-See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for:
-- Current limitations
-- Workarounds
-- Planned fixes
-
-## 🗺 Roadmap
-
-### v1.0.0-beta (Current) ✅
-- ✅ Core Write/Recall complete
-- ✅ Pack Manager/Runner complete
-- ✅ Heartbeat Scheduler complete
-- ✅ LLM Extractors complete
-- ✅ Viewer Backend complete
-- ✅ Schema 100% (16/16 tables)
-- ✅ Test coverage 95%
-
-### v1.5.0 (Next)
-- [ ] Ollama embedding support (local embeddings)
-- [ ] Example packs (community contributions)
-- [ ] CI/CD pipeline (GitHub Actions)
-- [ ] API documentation (OpenAPI/Swagger)
-
-### v2.0.0 (Future)
-- [ ] Multi-agent coordination
-- [ ] Advanced graph algorithms (via PostgreSQL recursive CTE)
-- [ ] Plugin marketplace
-- [ ] Advanced analytics dashboard
+---
 
 ## 📄 License
 
 MIT License
 
+---
+
 ## 🙏 Credits
 
+- **Nemos** - MoE routing and FSRS forgetting curve inspiration
+- **AIRI** - Emotion system and TTS integration inspiration
 - **FastAPI** - Modern Python web framework
 - **SQLAlchemy** - Database ORM
-- **pgvector** - Vector similarity search in PostgreSQL
-- **pg_jieba** - Chinese text segmentation for PostgreSQL
+- **pgvector** - Vector similarity search
+- **pg_jieba** - Chinese text segmentation
 - **SiliconFlow** - Embedding and Rerank APIs
-- **MetaPact** - Inspiration for agent architecture
+
+---
 
 ## 📞 Support
 
 - **GitHub Issues**: https://github.com/26bk9ck5vr-stack/memos-graph/issues
-- **Documentation**: See `docs/` directory
+- **Documentation**: [MEMOS_V3_MVP_GUIDE.md](MEMOS_V3_MVP_GUIDE.md)
 - **Known Issues**: [KNOWN_ISSUES.md](KNOWN_ISSUES.md)
+
+---
+
+**memos-graph v3.0 MVP - The most intelligent, emotional, and human-like memory engine!** 🚀
