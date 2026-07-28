@@ -22,11 +22,11 @@ class NotImplementedByDesignError(ContextEngineError):
 
 class ContextInjector:
     """Injects agent state, events, promises, and memories into context.
-
-    T1.2 / T2.1 from DESIGN.md v2.0
+    
+    T1.2 / T2.1 from DESIGN.md v3.0
     Note: Minimal implementation for contract tests.
     """
-
+    
     def __init__(self, db_url: str | None = None) -> None:
         self._db_url = db_url
         self._recall = RecallEngine(db_url=db_url)
