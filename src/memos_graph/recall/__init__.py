@@ -6,15 +6,14 @@ Implementation: T5.1-T5.5
 from __future__ import annotations
 
 import time
-import httpx
-from memos_graph.llm.client import LLMClient
-from memos_graph.embedding import EmbeddingService, NotImplementedByDesignError
-from memos_graph.reranker.cross_encoder import CrossEncoderReranker
-import json
-import re
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
+
+# 延迟导入，避免循环依赖
+# from memos_graph.llm.client import LLMClient
+# from memos_graph.embedding import EmbeddingService
+# from memos_graph.reranker.cross_encoder import CrossEncoderReranker
 
 from sqlalchemy import select, text, func
 from sqlalchemy.ext.asyncio import AsyncSession

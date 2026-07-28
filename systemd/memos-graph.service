@@ -1,22 +1,51 @@
 [Unit]
-Description=memos-graph daemon
+Description=memos-graph daemon - Agent memory engine
+Documentation=https://github.com/memos-graph/memos-graph
 After=network.target postgresql.service
+Wants=postgresql.service
 
 [Service]
 Type=simple
 User=gato
 Group=gato
-WorkingDirectory=/home/gato/projects/memos-graph
-ExecStart=/home/gato/.local/bin/memos-graph serve --port 8765 --host 127.0.0.1
+WorkingDirectory=/home/gato/memos-graph
+
+# 启动命令 (使用 uvicorn)
+ExecStart=/home/gato/memos-graph/.venv/bin/uvicorn memos_graph.server:create_app --factory --host 127.0.0.1 --port 8765
+
+# 重启策略
 Restart=always
 RestartSec=5
-Environment="PATH=/home/gato/.local/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="ANTHROPIC_API_KEY=your-api-key-here"
+StartLimitInterval=60
+StartLimitBurst=5
 
-# Logging
+# 环境变量
+Environment="PATH=/home/gato/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="MEMOS_GRAPH_LOG_DIR=/home/gato/.memos-graph/logs"
+Environment="MEMOS_GRAPH_LOG_LEVEL=INFO"
+# API Key (从文件读取，避免硬编码)
+# Environment="ANTHROPIC_API_KEY=your-api-key-here"
+
+# 资源限制
+LimitNOFILE=65535
+LimitNPROC=4096
+MemoryMax=2G
+MemoryHigh=1536M
+
+# 日志配置 - 输出到 journal
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=memos-graph
+
+# 安全增强 (放宽限制)
+NoNewPrivileges=true
+ProtectHome=read-only
+ReadWritePaths=/home/gato/.memos-graph/logs /home/gato/memos-graph
+
+# Watchdog (可选，需要应用支持)
+# WatchdogSec=30
+# NotifyAccess=all
 
 [Install]
 WantedBy=multi-user.target

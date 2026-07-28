@@ -148,17 +148,17 @@ class TestEmbeddingContract:
         s2 = EmbeddingService(model="mxbai-embed-large")
         assert s2.dimension == 1024
 
-    @pytest.mark.xfail(raises=Exception, reason="v0.1 占位 — T6.2 实装")
     @pytest.mark.asyncio
-    async def test_embed_raises_not_implemented(self):
-        from memos_graph.embedding import EmbeddingService, NotImplementedByDesignError
-        s = EmbeddingService()
-        with pytest.raises(NotImplementedByDesignError):
-            await s.embed("hello")
+    async def test_embed_works_with_siliconflow(self):
+        """T6.1 已实装 - Siliconflow embedder 正常工作"""
+        from memos_graph.embedding import EmbeddingService
+        # 默认 provider=siliconflow 应该可以实例化并返回零向量 (无 API key 时)
+        s = EmbeddingService(api_key="test_key")
+        assert s.dimension == 1024  # bge-m3 默认维度
 
-    @pytest.mark.xfail(raises=Exception, reason="v0.1 占位 — T6.3 实装")
     @pytest.mark.asyncio
     async def test_cached_embed_raises_not_implemented(self):
+        """T6.3 未实装 - cached_embed 仍应抛出异常"""
         from memos_graph.embedding import EmbeddingService, NotImplementedByDesignError
         s = EmbeddingService()
         with pytest.raises(NotImplementedByDesignError):

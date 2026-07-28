@@ -11,8 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from memos_graph.db.models import Chunk, ChunkEntity, ChunkVector, Entity, EntityEdge, Event, EventVector, Promise, UserProfile
+# 延迟导入 EmbeddingService，避免循环依赖
+# from memos_graph.recall import EmbeddingService
 from memos_graph.llm.client import LLMClient
-from memos_graph.recall import EmbeddingService
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -70,13 +71,13 @@ class EventExtractor:
             logger.warning(f"Event extraction failed: {e}")
             return []
 
-    async def upsert(
+    async def process(
         self,
         session: AsyncSession,
         text: str,
         agent_id: str,
         metadata: dict | None = None,
-        embedding_service: EmbeddingService | None = None,
+        embedding_service: Any | None = None,  # type: Any to avoid circular import
         related_chunk_id: int | None = None,
     ) -> list[int]:
         """Extract events, upsert to DB, generate and store vectors."""

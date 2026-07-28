@@ -1,5 +1,6 @@
 """实时写入 API - 用于 Hermes Gateway 直接调用"""
 
+import asyncio
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
@@ -13,6 +14,9 @@ from memos_graph.embedding import EmbeddingService
 from memos_graph.config import load_config
 
 logger = logging.getLogger(__name__)
+
+# 背压控制：限制并发向量生成任务数，防止 OOM
+_embedding_semaphore = asyncio.Semaphore(5)  # 最多 5 个并发任务
 
 router = APIRouter()
 
@@ -149,39 +153,40 @@ async def realtime_sync(
             # 优势：写入延迟降低 ~40%
             # 风险：短暂时间内 (秒级) 无法向量召回，但 FTS 仍可用
             async def generate_embedding_async():
-                """后台异步生成向量嵌入"""
-                try:
-                    from memos_graph.db.session import _async_session_factory
-                    from memos_graph.db.models import ChunkVector
-                    from memos_graph.embedding import EmbeddingService
-                    from memos_graph.config import load_config
-                    
-                    cfg = load_config()
-                    embedding_service = EmbeddingService(
-                        model=cfg.embedding.model,
-                        base_url=cfg.embedding.base_url,
-                        api_key=cfg.embedding.api_key,
-                        timeout=cfg.embedding.timeout_seconds,  # 正确参数名：timeout
-                    )
-                    
-                    async with _async_session_factory() as bg_session:
-                        embedding = await embedding_service.embed(content)
-                        # 确保向量是 list[float] 格式
-                        if hasattr(embedding, 'tolist'):
-                            embedding = embedding.tolist()
-                        elif isinstance(embedding, dict):
-                            embedding = embedding.get('embedding', [0.0] * 1024)
+                """后台异步生成向量嵌入 - 带背压控制"""
+                async with _embedding_semaphore:  # 限制并发数
+                    try:
+                        from memos_graph.db.session import _async_session_factory
+                        from memos_graph.db.models import ChunkVector
+                        from memos_graph.embedding import EmbeddingService
+                        from memos_graph.config import load_config
                         
-                        chunk_vector = ChunkVector(
-                            chunk_id=chunk.id,
-                            embedding=embedding,
-                            model=cfg.embedding.model
+                        cfg = load_config()
+                        embedding_service = EmbeddingService(
+                            model=cfg.embedding.model,
+                            base_url=cfg.embedding.base_url,
+                            api_key=cfg.embedding.api_key,
+                            timeout=cfg.embedding.timeout_seconds,  # 正确参数名：timeout
                         )
-                        bg_session.add(chunk_vector)
-                        await bg_session.commit()
-                        logger.info(f"✅ 异步向量生成成功 (chunk_id={chunk.id})")
-                except Exception as e:
-                    logger.error(f"❌ 异步向量生成失败：{e}")
+                        
+                        async with _async_session_factory() as bg_session:
+                            embedding = await embedding_service.embed(content)
+                            # 确保向量是 list[float] 格式
+                            if hasattr(embedding, 'tolist'):
+                                embedding = embedding.tolist()
+                            elif isinstance(embedding, dict):
+                                embedding = embedding.get('embedding', [0.0] * 1024)
+                            
+                            chunk_vector = ChunkVector(
+                                chunk_id=chunk.id,
+                                embedding=embedding,
+                                model=cfg.embedding.model
+                            )
+                            bg_session.add(chunk_vector)
+                            await bg_session.commit()
+                            logger.info(f"✅ 异步向量生成成功 (chunk_id={chunk.id})")
+                    except Exception as e:
+                        logger.error(f"❌ 异步向量生成失败 (chunk_id={chunk.id}): {e}", exc_info=True)
             
             # 启动后台任务 (不等待)
             import asyncio
