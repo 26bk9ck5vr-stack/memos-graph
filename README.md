@@ -141,7 +141,9 @@ result = await engine.retrieve(request)
 ```
 
 **Recall pipeline**:
-1. MoE routing → 2. 3-path recall → 3. RRF fusion → 4. LLM rerank → 5. Graph traversal → 6. Emotion weighting → 7. Forgetting filter → 8. PTSD check
+1. MoE routing → 2. 3-path recall (FTS + Pattern + Time) → 3. RRF fusion → 4. Graph traversal → 5. Emotion weighting → 6. Forgetting filter → 7. PTSD check
+
+*Note: LLM rerank and MMR are planned for v3.1*
 
 ---
 
@@ -159,17 +161,16 @@ result = await engine.retrieve(request)
 ## 🧪 Testing
 
 ```bash
-# Run all tests
-PYTHONPATH=/home/gato/memos-graph/src python3 -m pytest tests/ -v
+# Run v3.0 module tests
+PYTHONPATH=/home/gato/memos-graph/src python3 -m pytest tests/router/ tests/emotion/ tests/forgetting/ tests/retrieve_v3/ -v
 
-# Run specific modules
-python3 -m pytest tests/router/ -v          # MoE routing (23 tests)
-python3 -m pytest tests/emotion/ -v         # Emotion system (26 tests)
-python3 -m pytest tests/forgetting/ -v      # FSRS (28 tests)
-python3 -m pytest tests/retrieve_v3/ -v     # Integrated (14 tests)
+# Run all tests (legacy tests may have issues)
+python3 -m pytest tests/ -v --ignore=tests/test_heartbeat.py
 ```
 
-**Test Results**: **91 tests, 100% passing** ✅
+**Test Status**: 
+- ✅ v3.0 modules: 67 tests passing (router: 23, emotion: 26, forgetting: 28, retrieve_v3: 14)
+- ⚠️ Legacy tests: Some need fixes (see KNOWN_ISSUES.md)
 
 ---
 
@@ -193,10 +194,10 @@ python3 -m pytest tests/retrieve_v3/ -v     # Integrated (14 tests)
 - ✅ PTSD flashback (1% probability)
 
 ### v3.1.0 (Next)
-- [ ] Automatic domain evolution (clustering, merging, splitting)
-- [ ] Full graph traversal implementation
+- [ ] Automatic domain evolution (clustering, merging, splitting) - *placeholder in v3.0*
+- [ ] Full graph traversal implementation - *placeholder in v3.0*
+- [ ] LLM rerank + MMR diversity
 - [ ] Performance optimization (FAISS acceleration)
-- [ ] More emotion types (optional)
 
 ### v3.2.0 (Future)
 - [ ] Multimodal emotion (image, audio)
@@ -231,9 +232,8 @@ memos-graph v3.0 introduces **industry-first** features:
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │  PostgreSQL 17+ with Extensions                              │
-│  - pgvector (1024-dim embeddings)                           │
+│  - pgvector (1024-dim or 768-dim embeddings)                │
 │  - pg_jieba (Chinese FTS)                                   │
-│  - pg_trgm (Fuzzy matching)                                 │
 │  - 16 tables: chunks, entities, emotions, stability, etc.   │
 └─────────────────────────────────────────────────────────────┘
 ```
