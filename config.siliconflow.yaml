@@ -8,12 +8,11 @@ database:
 # Neo4j (可选，用于图谱存储)
 neo4j:
   uri: bolt://localhost:7687
-  user: neo4j
+  username: neo4j
   password: memos123
 
 # LLM 配置 - SiliconFlow Qwen3-8B
 llm:
-  provider: siliconflow
   base_url: https://api.siliconflow.cn/v1
   api_key: sk-vsnwcxvhpnzsklcexqfxqaidfvugpdthmxufloibfktmkxbx
   model: Qwen/Qwen3-8B
@@ -35,6 +34,7 @@ reranker:
   api_key: sk-vsnwcxvhpnzsklcexqfxqaidfvugpdthmxufloibfktmkxbx
   model: BAAI/bge-reranker-v2-m3
   timeout_seconds: 30
+  enabled: false  # v3.1 才使用
 
 # Hermes 集成 (可选)
 hermes:
