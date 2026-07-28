@@ -2,7 +2,7 @@
 
 **AI Memory Engine with MoE Routing, Emotional Intelligence, and FSRS Forgetting Curve**
 
-✅ **MVP Complete** - 91 tests 100% passing
+⚠️ **MVP In Progress** - 70 tests passing, 28 tests disabled (need rewrite)
 
 ---
 
@@ -141,9 +141,9 @@ result = await engine.retrieve(request)
 ```
 
 **Recall pipeline**:
-1. MoE routing → 2. 3-path recall (FTS + Pattern + Time) → 3. RRF fusion → 4. Graph traversal → 5. Emotion weighting → 6. Forgetting filter → 7. PTSD check
+1. MoE routing → 2. 3-path recall (FTS + Pattern + Time) → 3. Graph traversal → 4. Emotion weighting → 5. Forgetting filter → 6. PTSD check
 
-*Note: LLM rerank and MMR are planned for v3.1*
+*Note: RRF fusion, LLM rerank, and MMR are planned for v3.1*
 
 ---
 
@@ -151,10 +151,10 @@ result = await engine.retrieve(request)
 
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
-| MoE Routing | <100ms | 50-80ms | ✅ |
+| MoE Routing | <100ms | <80ms | ✅ |
 | Recall Total | <500ms | 300-400ms | ✅ |
-| Test Coverage | >80% | ~85% | ✅ |
-| Test Pass Rate | >90% | 100% | ✅ |
+| Test Coverage | >80% | ~70% | ⚠️ |
+| Test Pass Rate | >90% | 85% (70/82) | ⚠️ |
 
 ---
 
@@ -169,10 +169,12 @@ python3 -m pytest tests/ -v --ignore=tests/test_heartbeat.py
 ```
 
 **Test Status**: 
-- ✅ v3.0 modules: 91 tests (router: 23, emotion: 26, forgetting: 28, retrieve_v3: 14)
-- ✅ Legacy tests: 71 tests (contracts: 38, schema: 33)
-- ✅ **Total: 162 passed, 3 skipped, 6 xfailed, 2 xpassed**
-- ⚠️ Disabled: test_heartbeat.py (needs rewrite for HeartbeatRuleConfig)
+- ✅ Core tests: 70 passed (contracts: 45, schema: 25)
+- ⚠️ Failed: 1 test (Windows path issue in test_contracts.py)
+- ⏭️ Disabled: 28 tests (test_heartbeat.py needs rewrite)
+- ❌ v3.0 module tests: NOT YET CREATED (router/, emotion/, forgetting/, retrieve_v3/ directories missing)
+
+**Actual Coverage**: 70/82 tests passing (85%) - 28 tests disabled pending rewrite
 
 ---
 
@@ -188,12 +190,13 @@ python3 -m pytest tests/ -v --ignore=tests/test_heartbeat.py
 
 ## 🗺 Roadmap
 
-### v3.0.0-alpha (Current) ✅
-- ✅ MoE routing (CentroidRouter + LLMRouter)
-- ✅ Emotion system (6 emotions + TTS)
-- ✅ FSRS forgetting curve
-- ✅ Integrated recall v3.0
-- ✅ PTSD flashback (1% probability)
+### v3.0.0-alpha (Current) ⚠️
+- ✅ MoE routing (CentroidRouter + LLMRouter) - **tests pending**
+- ✅ Emotion system (6 emotions + TTS) - **tests pending**
+- ✅ FSRS forgetting curve - **tests pending**
+- ✅ Integrated recall (basic pipeline) - **tests pending**
+- ⚠️ PTSD flashback (1% probability) - **tests pending**
+- ❌ v3.0 module tests: **NOT YET CREATED**
 
 ### v3.1.0 (Next)
 - [ ] Automatic domain evolution (clustering, merging, splitting) - *placeholder in v3.0*
@@ -236,7 +239,7 @@ memos-graph v3.0 introduces **industry-first** features:
 │  PostgreSQL 17+ with Extensions                              │
 │  - pgvector (1024-dim or 768-dim embeddings)                │
 │  - pg_jieba (Chinese FTS)                                   │
-│  - 16 tables: chunks, entities, emotions, stability, etc.   │
+│  - 17 tables: chunks, entities, emotions, stability, skills, task_summaries, etc.   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
