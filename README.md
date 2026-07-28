@@ -169,8 +169,10 @@ python3 -m pytest tests/ -v --ignore=tests/test_heartbeat.py
 ```
 
 **Test Status**: 
-- ✅ v3.0 modules: 67 tests passing (router: 23, emotion: 26, forgetting: 28, retrieve_v3: 14)
-- ⚠️ Legacy tests: Some need fixes (see KNOWN_ISSUES.md)
+- ✅ v3.0 modules: 91 tests (router: 23, emotion: 26, forgetting: 28, retrieve_v3: 14)
+- ✅ Legacy tests: 71 tests (contracts: 38, schema: 33)
+- ✅ **Total: 162 passed, 3 skipped, 6 xfailed, 2 xpassed**
+- ⚠️ Disabled: test_heartbeat.py (needs rewrite for HeartbeatRuleConfig)
 
 ---
 
