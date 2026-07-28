@@ -26,8 +26,8 @@ Usage:
 """Retrieve Engine v3.0 - Integrated recall with MoE, emotion, FSRS, and graph."""
 
 import time
+import random
 import logging
-from typing import List, Optional
 from datetime import datetime
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
