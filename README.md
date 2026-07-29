@@ -452,3 +452,32 @@ MIT License
 ---
 
 **memos-graph v3.0 - The most intelligent, emotional, and human-like memory engine!** 🚀
+
+## 🔧 可选依赖
+
+v3.1 引入了以下可选依赖，用于增强功能：
+
+### FAISS 加速 (推荐)
+```bash
+pip install faiss-cpu
+```
+- 用途：大规模向量搜索加速 (10-50x 性能提升)
+- 必需：大规模部署 (>10 万条记忆)
+- 降级：未安装时使用暴力搜索 (较慢)
+
+### Scikit-Learn (已安装)
+```bash
+pip install scikit-learn
+```
+- 用途：领域自动演化 (DBSCAN 聚类)
+- 必需：使用领域演化功能
+- 降级：未安装时跳过领域发现
+
+### SiliconFlow API Key (可选)
+```bash
+export SILICONFLOW_API_KEY="your_api_key"
+```
+- 用途：LLM Rerank 智能重排序
+- 必需：使用 LLM 重排功能
+- 降级：未配置时使用原始顺序
+
