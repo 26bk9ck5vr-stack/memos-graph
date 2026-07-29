@@ -24,9 +24,12 @@ class MMRReranker:
         n_docs = len(documents)
         top_k = min(top_k, n_docs)
         
-        # 计算相关性
+        # 计算所有文档与查询的相关性
         doc_embeddings = np.array([doc[1] for doc in documents])
-        similarities = self._cosine_similarity(doc_embeddings, query_embedding)
+        if doc_embeddings.ndim == 1:
+            doc_embeddings = doc_embeddings.reshape(1, -1)
+        
+        similarities = self._cosine_similarity_batch(doc_embeddings, query_embedding)
         
         # MMR 选择
         selected = []
@@ -38,8 +41,19 @@ class MMRReranker:
             
             for idx in remaining:
                 rel = similarities[idx]
-                redundancy = max([self._cosine_similarity(documents[idx][1], documents[s][1]) for s in selected], default=0)
-                score = self.lambda_param * rel - (1 - self.lambda_param) * redundancy
+                
+                # 计算与已选文档的最大冗余度
+                if selected:
+                    redundancies = [
+                        self._cosine_similarity(documents[idx][1], documents[s][1])
+                        for s in selected
+                    ]
+                    max_redundancy = max(redundancies)
+                else:
+                    max_redundancy = 0
+                
+                # MMR 分数
+                score = self.lambda_param * rel - (1 - self.lambda_param) * max_redundancy
                 
                 if score > best_score:
                     best_score = score
@@ -51,13 +65,33 @@ class MMRReranker:
         
         return [documents[i][0] for i in selected]
     
+    def _cosine_similarity_batch(self, vectors: np.ndarray, query: np.ndarray) -> np.ndarray:
+        """计算一批向量与查询的余弦相似度"""
+        if vectors.ndim == 1:
+            vectors = vectors.reshape(1, -1)
+        
+        norm_vectors = np.linalg.norm(vectors, axis=1, keepdims=True)
+        norm_query = np.linalg.norm(query)
+        
+        if norm_query == 0:
+            return np.zeros(len(vectors))
+        
+        # 避免除以零
+        norm_vectors = np.where(norm_vectors == 0, 1e-8, norm_vectors)
+        
+        similarities = np.dot(vectors, query) / (norm_vectors.flatten() * norm_query)
+        return similarities
+    
     def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
-        norm_a = np.linalg.norm(a, axis=-1) if a.ndim > 1 else np.linalg.norm(a)
-        norm_b = np.linalg.norm(b, axis=-1) if b.ndim > 1 else np.linalg.norm(b)
+        """计算两个向量的余弦相似度"""
+        norm_a = np.linalg.norm(a)
+        norm_b = np.linalg.norm(b)
+        
         if norm_a == 0 or norm_b == 0:
             return 0.0
+        
         return float(np.dot(a, b) / (norm_a * norm_b))
 
 
 if __name__ == "__main__":
-    print("MMR Reranker 模块加载成功")
+    print("MMR Reranker loaded")
