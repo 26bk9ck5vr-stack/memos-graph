@@ -31,3 +31,15 @@ __all__ = [
     "LLMSimpleReranker",
     "MMRReranker",
 ]
+
+# v3.1 new features
+from .domain_evolution import DomainEvolution, Domain
+from .faiss_accelerator import FAISSAccelerator
+from .adaptive_search import AdaptiveHybridSearch
+
+__all__ += [
+    "DomainEvolution",
+    "Domain",
+    "FAISSAccelerator",
+    "AdaptiveHybridSearch",
+]
