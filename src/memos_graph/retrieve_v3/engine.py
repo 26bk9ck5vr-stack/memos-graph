@@ -51,19 +51,25 @@ class RetrieveRequestV3:
     Attributes:
         query: User query string
         agent_id: Agent/user identifier
-        use_moe_routing: Whether to use MoE routing (default True)
-        domains: List of domains for routing (optional)
-        user_emotion: User's current emotional state (optional)
-        emotion_filter: Filter by specific emotion (optional)
-        emotion_weight: Weight for emotion scoring (default 0.2)
-        use_graph: Whether to use graph traversal (default True)
-        graph_hops: Number of graph hops (default 2)
-        graph_per_node: Nodes per hop (default 5)
-        apply_forgetting: Whether to apply FSRS forgetting (default True)
-        forgetting_threshold: Retrievability threshold (default 0.1)
-        top_k: Number of results to return (default 20)
-        performance_mode: Performance mode (fast|standard|full)
-        ptsd_flashback_prob: PTSD flashback probability (default 0.01 = 1%)
+        use_moe_routing: Whether to use MoE routing
+        domains: List of domains for MoE routing
+        user_emotion: User's current emotional state
+        emotion_weight: Weight for emotion scoring (0.0-1.0)
+        emotion_filter: Filter hits by emotion (optional)
+        use_graph: Whether to use graph traversal
+        graph_hops: Number of graph hops (default: 1)
+        graph_per_node: Number of neighbors per node (default: 5)
+        apply_forgetting: Whether to apply FSRS forgetting
+        forgetting_threshold: Stability threshold (R < threshold filtered)
+        ptsd_flashback_prob: Probability of PTSD flashback (0.0-1.0)
+        top_k: Number of results to return
+        performance_mode: Use performance-optimized search
+        use_rrf: Whether to use RRF fusion for multi-path recall
+        rrf_k: RRF smoothing constant (default: 60)
+        use_llm_rerank: Whether to use LLM rerank (v3.1)
+        llm_rerank_top_k: Rerank top K results (v3.1)
+        use_mmr: Whether to use MMR diversity rerank (v3.1)
+        mmr_lambda: MMR lambda for balancing relevance/diversity (v3.1)
     """
     
     query: str
